@@ -5,7 +5,13 @@ import { supabaseService } from "./supabaseService";
 export const workoutPhotoService = {
   uploadWorkoutPhoto: async (userId: string, file: File): Promise<string> => {
     if (!supabaseService.isConfigured() || !supabase) {
-      throw new Error("Supabase não configurado");
+      throw new Error("Supabase não configurado. Configure as variáveis de ambiente.");
+    }
+
+    // Verificar se o usuário está autenticado
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || session.user.id !== userId) {
+      throw new Error("Usuário não autenticado");
     }
 
     try {
@@ -18,8 +24,19 @@ export const workoutPhotoService = {
         throw new Error("Arquivo deve ser uma imagem");
       }
 
+      // Verificar se o bucket existe
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      if (bucketsError) {
+        console.error("Erro ao listar buckets:", bucketsError);
+      }
+      
+      const workoutPhotosBucket = buckets?.find(b => b.name === "workout-photos");
+      if (!workoutPhotosBucket) {
+        throw new Error("Bucket 'workout-photos' não encontrado. Configure o Storage no Supabase (veja CONFIGURACAO_STORAGE_WORKOUT_PHOTOS.md)");
+      }
+
       // Criar nome único para o arquivo
-      const fileExt = file.name.split(".").pop();
+      const fileExt = file.name.split(".").pop() || "jpg";
       const fileName = `${userId}/workouts/${Date.now()}.${fileExt}`;
 
       // Upload para Supabase Storage (bucket 'workout-photos')
@@ -30,12 +47,23 @@ export const workoutPhotoService = {
           upsert: false,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro no upload:", error);
+        throw new Error(`Erro ao fazer upload: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error("Upload falhou sem retornar dados");
+      }
 
       // Obter URL pública
       const {
         data: { publicUrl },
       } = supabase.storage.from("workout-photos").getPublicUrl(fileName);
+
+      if (!publicUrl) {
+        throw new Error("Não foi possível obter URL pública da imagem");
+      }
 
       return publicUrl;
     } catch (error: any) {

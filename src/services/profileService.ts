@@ -39,23 +39,13 @@ export const profileService = {
   // Upload de foto de perfil
   uploadAvatar: async (userId: string, file: File): Promise<string> => {
     if (!supabaseService.isConfigured() || !supabase) {
-      // Fallback: converter para base64 e salvar no localStorage
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          const profile = getProfileFromStorage(userId) || {
-            id: userId,
-            name: "",
-            email: "",
-          };
-          profile.avatar_url = base64;
-          saveProfileToStorage(profile);
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      throw new Error("Supabase não configurado. Configure as variáveis de ambiente.");
+    }
+
+    // Verificar se o usuário está autenticado
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || session.user.id !== userId) {
+      throw new Error("Usuário não autenticado");
     }
 
     try {
@@ -68,8 +58,32 @@ export const profileService = {
         throw new Error("Arquivo deve ser uma imagem");
       }
 
+      // Verificar se o bucket existe
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      if (bucketsError) {
+        console.error("Erro ao listar buckets:", bucketsError);
+      }
+      
+      const avatarsBucket = buckets?.find(b => b.name === "avatars");
+      if (!avatarsBucket) {
+        throw new Error("Bucket 'avatars' não encontrado. Configure o Storage no Supabase (veja CONFIGURACAO_STORAGE.md)");
+      }
+
+      // Deletar avatar antigo se existir
+      const currentProfile = await profileService.getProfile(userId);
+      if (currentProfile?.avatar_url && currentProfile.avatar_url.includes("supabase.co")) {
+        try {
+          const urlParts = currentProfile.avatar_url.split("/");
+          const oldFileName = urlParts.slice(urlParts.indexOf("avatars") + 1).join("/");
+          await supabase.storage.from("avatars").remove([oldFileName]);
+        } catch (error) {
+          console.warn("Erro ao deletar avatar antigo:", error);
+          // Continuar mesmo se não conseguir deletar
+        }
+      }
+
       // Criar nome único para o arquivo
-      const fileExt = file.name.split(".").pop();
+      const fileExt = file.name.split(".").pop() || "jpg";
       const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
       // Upload para Supabase Storage
@@ -80,18 +94,29 @@ export const profileService = {
           upsert: false,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro no upload:", error);
+        throw new Error(`Erro ao fazer upload: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error("Upload falhou sem retornar dados");
+      }
 
       // Obter URL pública
       const {
         data: { publicUrl },
       } = supabase.storage.from("avatars").getPublicUrl(fileName);
 
+      if (!publicUrl) {
+        throw new Error("Não foi possível obter URL pública da imagem");
+      }
+
       // Atualizar perfil do usuário
       await profileService.updateProfile(userId, { avatar_url: publicUrl });
 
       return publicUrl;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao fazer upload da foto:", error);
       throw error;
     }
