@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,55 +6,41 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Users, UserMinus, Loader2, Trophy } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { groupService, type GroupMember, type Group } from "@/services/groupService";
-import { useToast } from "@/hooks/use-toast";
-import ProfileAvatar from "./ProfileAvatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Users, Crown, Trophy } from "lucide-react";
+import { groupService } from "@/services/groupService";
+import { groupRankingService, type MemberStats } from "@/services/groupRankingService";
 
 interface GroupMembersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  group: Group | null;
-  onMemberRemoved?: () => void;
+  groupId: string;
+  groupName: string;
 }
 
-const GroupMembersDialog = ({
-  open,
-  onOpenChange,
-  group,
-  onMemberRemoved,
-}: GroupMembersDialogProps) => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [members, setMembers] = useState<GroupMember[]>([]);
+const GroupMembersDialog = ({ open, onOpenChange, groupId, groupName }: GroupMembersDialogProps) => {
+  const [members, setMembers] = useState<any[]>([]);
+  const [memberStats, setMemberStats] = useState<MemberStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(null);
-  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
-    if (open && group) {
+    if (open && groupId) {
       loadMembers();
     }
-  }, [open, group]);
+  }, [open, groupId]);
 
   const loadMembers = async () => {
-    if (!group) return;
-
-    setLoading(true);
     try {
-      const groupMembers = await groupService.getGroupMembers(group.id);
+      setLoading(true);
+      
+      // Buscar membros do grupo
+      const groupMembers = await groupService.getGroupMembers(groupId);
       setMembers(groupMembers);
+
+      // Buscar estatísticas dos membros
+      const stats = await groupRankingService.getGroupRanking(groupId);
+      setMemberStats(stats);
     } catch (error) {
       console.error("Erro ao carregar membros:", error);
     } finally {
@@ -64,129 +48,86 @@ const GroupMembersDialog = ({
     }
   };
 
-  const handleRemoveMember = async () => {
-    if (!group || !memberToRemove || !user) return;
-
-    setRemoving(true);
-    try {
-      await groupService.removeMember(group.id, memberToRemove.user_id, user.id);
-      toast({
-        title: "Membro removido",
-        description: `${memberToRemove.user_name} foi removido do grupo`,
-      });
-      setMemberToRemove(null);
-      loadMembers();
-      onMemberRemoved?.();
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível remover o membro.",
-        variant: "destructive",
-      });
-    } finally {
-      setRemoving(false);
-    }
+  const getMemberStats = (userId: string) => {
+    return memberStats.find((s) => s.user_id === userId);
   };
 
-  const isOwner = group?.owner_id === user?.id;
-  const isAdmin = isOwner || members.some(m => m.user_id === user?.id && m.role === "admin");
-
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Membros do Grupo - {group?.name}
-            </DialogTitle>
-            <DialogDescription>
-              {isOwner ? "Gerencie os membros do seu grupo" : "Lista de membros do grupo"}
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby="members-description">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Membros de {groupName}
+          </DialogTitle>
+          <DialogDescription id="members-description">
+            {members.length} {members.length === 1 ? "membro" : "membros"}
+          </DialogDescription>
+        </DialogHeader>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : members.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhum membro no grupo ainda
-            </div>
-          ) : (
-            <div className="space-y-2 mt-4">
-              {members.map((member) => (
-                <Card key={member.id} className="p-4 gradient-card border-border/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <ProfileAvatar
-                        userId={member.user_id}
-                        userName={member.user_name}
-                        size="md"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold">{member.user_name}</p>
-                          {member.role === "owner" && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">
-                              Dono
-                            </span>
-                          )}
-                          {member.role === "admin" && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-secondary/20 text-secondary-foreground">
-                              Admin
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Trophy className="h-3 w-3 text-primary" />
-                          <span className="text-sm text-muted-foreground">
-                            {member.total_points || 0} pontos
-                          </span>
-                        </div>
-                      </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {members.map((member) => {
+              const stats = getMemberStats(member.user_id);
+              
+              return (
+                <div
+                  key={member.id}
+                  className="flex items-center gap-4 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                >
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={member.user_avatar_url} />
+                    <AvatarFallback>
+                      {member.user_name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{member.user_name}</p>
+                      {member.role === "owner" && (
+                        <Badge variant="default" className="gap-1">
+                          <Crown className="h-3 w-3" />
+                          Dono
+                        </Badge>
+                      )}
+                      {stats?.is_top_contributor && (
+                        <Badge variant="secondary" className="gap-1">
+                          <Trophy className="h-3 w-3" />
+                          Top
+                        </Badge>
+                      )}
                     </div>
-                    {isOwner && member.role !== "owner" && member.user_id !== user?.id && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setMemberToRemove(member)}
-                        disabled={removing}
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
+                    
+                    {stats && (
+                      <p className="text-sm text-muted-foreground">
+                        {stats.rank}º lugar • {stats.total_points} pontos • {stats.posts_count} posts
+                      </p>
                     )}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover Membro</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover {memberToRemove?.user_name} do grupo? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRemoveMember}
-              disabled={removing}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {removing ? "Removendo..." : "Remover"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+                    <p className="text-xs text-muted-foreground">
+                      Entrou em {new Date(member.joined_at).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+
+                  {stats && (
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-yellow-500">{stats.rank}º</p>
+                      <p className="text-xs text-muted-foreground">{stats.total_points} pts</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 };
 
 export default GroupMembersDialog;
-

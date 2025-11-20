@@ -80,6 +80,7 @@ export interface GroupMember {
   group_id: string;
   user_id: string;
   user_name: string;
+  user_avatar_url?: string;
   role: "owner" | "admin" | "member";
   joined_at: string;
   total_points?: number;

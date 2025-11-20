@@ -35,7 +35,7 @@ interface GroupsManagerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
+const GroupsManagerNew = ({ open, onOpenChange }: GroupsManagerProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -374,4 +374,5 @@ const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
   );
 };
 
-export default GroupsManager;
+export default GroupsManagerNew;
+

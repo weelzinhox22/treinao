@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 import QuickWorkoutDialog from "@/components/QuickWorkoutDialog";
 import GroupsManager from "@/components/GroupsManager";
 import GroupRankingDialog from "@/components/GroupRankingDialog";
+import GlobalRankingDialog from "@/components/GlobalRankingDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import LazyImage from "@/components/LazyImage";
@@ -46,6 +48,7 @@ import {
 const Feed = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [feed, setFeed] = useState<SharedTreino[]>([]);
   const [quickWorkouts, setQuickWorkouts] = useState<QuickWorkout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +62,7 @@ const Feed = () => {
   const [rankingDialogOpen, setRankingDialogOpen] = useState(false);
   const [selectedGroupForRanking, setSelectedGroupForRanking] = useState<{ id: string; name: string } | null>(null);
   const [userGroups, setUserGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [globalRankingOpen, setGlobalRankingOpen] = useState(false);
 
   useEffect(() => {
     loadFeed();
@@ -183,33 +187,67 @@ const Feed = () => {
           </div>
           <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
             {userGroups.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 md:flex-initial"
-                  >
-                    <Trophy className="h-4 w-4 mr-2" />
-                    Ranking
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  {userGroups.map((group) => (
-                    <DropdownMenuItem
-                      key={group.id}
-                      onClick={() => {
-                        setSelectedGroupForRanking(group);
-                        setRankingDialogOpen(true);
-                      }}
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 md:flex-initial"
+                    >
+                      <UsersIcon className="h-4 w-4 mr-2" />
+                      Meus Grupos
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {userGroups.map((group) => (
+                      <DropdownMenuItem
+                        key={group.id}
+                        onClick={() => navigate(`/grupo/${group.id}`)}
+                      >
+                        <UsersIcon className="h-4 w-4 mr-2" />
+                        {group.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 md:flex-initial"
                     >
                       <Trophy className="h-4 w-4 mr-2" />
-                      {group.name}
-                    </DropdownMenuItem>
-                  ))}
+                      Ranking
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {userGroups.map((group) => (
+                      <DropdownMenuItem
+                        key={group.id}
+                        onClick={() => {
+                          setSelectedGroupForRanking(group);
+                          setRankingDialogOpen(true);
+                        }}
+                      >
+                        <Trophy className="h-4 w-4 mr-2" />
+                        {group.name}
+                      </DropdownMenuItem>
+                    ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              </>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGlobalRankingOpen(true)}
+              className="flex-1 md:flex-initial"
+            >
+              <Trophy className="h-4 w-4 mr-2" />
+              Ranking Geral
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -217,7 +255,7 @@ const Feed = () => {
               className="flex-1 md:flex-initial"
             >
               <UsersIcon className="h-4 w-4 mr-2" />
-              Grupos
+              {userGroups.length > 0 ? "Gerenciar" : "Criar Grupo"}
             </Button>
             <Button
               size="sm"
@@ -855,6 +893,12 @@ const Feed = () => {
             groupName={selectedGroupForRanking.name}
           />
         )}
+
+        {/* Ranking Global */}
+        <GlobalRankingDialog
+          open={globalRankingOpen}
+          onOpenChange={setGlobalRankingOpen}
+        />
       </div>
     </div>
   );

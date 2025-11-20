@@ -19,6 +19,7 @@ import ExercicioDetalhes from "./pages/ExercicioDetalhes";
 import Badges from "./pages/Badges";
 import Feed from "./pages/Feed";
 import Perfil from "./pages/Perfil";
+import GroupFeed from "./pages/GroupFeed";
 import Onboarding from "./components/Onboarding";
 import OfflineIndicator from "./components/OfflineIndicator";
 import NotFound from "./pages/NotFound";
@@ -145,6 +146,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <Perfil />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/grupo/:groupId"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <GroupFeed />
                   </Layout>
                 </ProtectedRoute>
               }

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, currentColor 1px, transparent 1px),
+      linear-gradient(to bottom, currentColor 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}
+
 /* Remover banner/promo do Lovable */
 [data-lovable],
 [class*="lovable"],
