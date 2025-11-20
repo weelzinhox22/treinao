@@ -7,9 +7,19 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Debug: verificar se as variáveis estão sendo carregadas
+console.log('🔍 Debug Supabase Config:', {
+  hasUrl: !!supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  urlLength: supabaseUrl?.length || 0,
+  keyLength: supabaseAnonKey?.length || 0,
+  urlPreview: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'undefined',
+});
+
 // Validação de segurança
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('⚠️ Supabase não configurado. Usando localStorage como fallback.');
+  console.warn('📝 Verifique se o arquivo .env existe na raiz do projeto e reinicie o servidor (npm run dev)');
 }
 
 // Criar cliente Supabase apenas se as variáveis estiverem configuradas
