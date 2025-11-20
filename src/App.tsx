@@ -19,6 +19,7 @@ import ExercicioDetalhes from "./pages/ExercicioDetalhes";
 import Badges from "./pages/Badges";
 import Feed from "./pages/Feed";
 import Perfil from "./pages/Perfil";
+import Peso from "./pages/Peso";
 import GroupFeed from "./pages/GroupFeed";
 import UserProfile from "./pages/UserProfile";
 import Onboarding from "./components/Onboarding";
@@ -147,6 +148,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <Perfil />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/peso"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Peso />
                   </Layout>
                 </ProtectedRoute>
               }

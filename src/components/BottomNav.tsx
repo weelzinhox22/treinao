@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Calendar, TrendingUp, Plus, Target, Users, MoreVertical, Trophy, Image, Award, User } from "lucide-react";
+import { Home, Calendar, TrendingUp, Plus, Target, Users, MoreVertical, Trophy, Image, Award, User, Scale } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,11 @@ const BottomNav = () => {
       path: "/metas",
       icon: Target,
       label: "Metas",
+    },
+    {
+      path: "/peso",
+      icon: Scale,
+      label: "Peso",
     },
     {
       path: "/progressao",

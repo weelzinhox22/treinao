@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dumbbell, LogOut, User, Settings, Home, Calendar, TrendingUp, Camera, Plus, Target, Trophy, Cloud, CloudOff, Users } from "lucide-react";
+import { Dumbbell, LogOut, User, Settings, Home, Calendar, TrendingUp, Camera, Plus, Target, Trophy, Cloud, CloudOff, Users, Scale } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/hooks/useSync";
 import { cn } from "@/lib/utils";
@@ -102,6 +102,18 @@ const Navbar = () => {
                     >
                       <Target className="h-4 w-4 mr-2" />
                       Metas
+                    </Button>
+                  </Link>
+                  <Link to="/peso">
+                    <Button 
+                      variant={isActive("/peso") ? "default" : "ghost"}
+                      size="sm"
+                      className={cn(
+                        isActive("/peso") && "bg-primary text-primary-foreground"
+                      )}
+                    >
+                      <Scale className="h-4 w-4 mr-2" />
+                      Peso
                     </Button>
                   </Link>
                   <Link to="/progressao">
