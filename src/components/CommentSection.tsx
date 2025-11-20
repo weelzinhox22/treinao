@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Trash2 } from "lucide-react";
 import { groupPostsService, type PostComment } from "@/services/groupPostsService";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import ProfileAvatar from "@/components/ProfileAvatar";
 
 interface CommentSectionProps {
   postId: string;
@@ -92,12 +92,11 @@ const CommentSection = ({
       <div className="space-y-3 max-h-80 overflow-y-auto">
         {comments.map((comment) => (
           <div key={comment.id} className="flex gap-3 group">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={comment.user_avatar_url} />
-              <AvatarFallback>
-                {comment.user_name.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <ProfileAvatar
+              userId={comment.user_id}
+              userName={comment.user_name}
+              size="sm"
+            />
             
             <div className="flex-1">
               <div className="bg-muted rounded-lg p-3">

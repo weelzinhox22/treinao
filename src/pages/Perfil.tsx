@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Edit2,
@@ -43,7 +44,10 @@ const Perfil = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || "");
+  const [editedBio, setEditedBio] = useState("");
+  const [isEditingBio, setIsEditingBio] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingBio, setSavingBio] = useState(false);
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
   const [profileStats, setProfileStats] = useState<UserProfileStats | null>(null);
   const [posts, setPosts] = useState<GroupPost[]>([]);
@@ -60,8 +64,19 @@ const Perfil = () => {
     if (user) {
       loadProfileData();
       setEditedName(user.name);
+      loadBio();
     }
   }, [user]);
+
+  const loadBio = async () => {
+    if (!user) return;
+    try {
+      const profile = await profileService.getProfile(user.id);
+      setEditedBio(profile?.bio || "");
+    } catch (error) {
+      console.error("Erro ao carregar bio:", error);
+    }
+  };
 
   const loadProfileData = async () => {
     if (!user) return;
@@ -117,6 +132,30 @@ const Perfil = () => {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveBio = async () => {
+    if (!user) return;
+
+    setSavingBio(true);
+    try {
+      await profileService.updateProfile(user.id, { bio: editedBio.trim() || undefined });
+      
+      toast({
+        title: "Bio atualizada!",
+        description: "Sua biografia foi atualizada com sucesso.",
+      });
+
+      setIsEditingBio(false);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a bio.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingBio(false);
     }
   };
 
@@ -339,6 +378,65 @@ const Perfil = () => {
                     <span>
                       Membro desde {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
                     </span>
+                  </div>
+                  
+                  {/* Bio */}
+                  <div className="mt-3">
+                    {isEditingBio ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editedBio}
+                          onChange={(e) => setEditedBio(e.target.value)}
+                          placeholder="Escreva uma biografia sobre você..."
+                          className="min-h-[80px] resize-none"
+                          maxLength={150}
+                        />
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            {editedBio.length}/150 caracteres
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={handleSaveBio}
+                              disabled={savingBio}
+                            >
+                              <Save className="h-3 w-3 mr-1" />
+                              {savingBio ? "Salvando..." : "Salvar"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                await loadBio();
+                                setIsEditingBio(false);
+                              }}
+                              disabled={savingBio}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm text-foreground/90 flex-1">
+                          {editedBio || (
+                            <span className="text-muted-foreground italic">
+                              Nenhuma biografia ainda. Clique em editar para adicionar.
+                            </span>
+                          )}
+                        </p>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 flex-shrink-0"
+                          onClick={() => setIsEditingBio(true)}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <Button

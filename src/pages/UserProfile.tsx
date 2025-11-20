@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { followService, type UserProfileStats } from "@/services/followService";
 import { groupPostsService, type GroupPost } from "@/services/groupPostsService";
+import { profileService } from "@/services/profileService";
 import { useToast } from "@/hooks/use-toast";
 import GroupPostCard from "@/components/GroupPostCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,17 +59,19 @@ const UserProfile = () => {
 
     setLoading(true);
     try {
-      const [stats, userPosts, followingStatus] = await Promise.all([
+      const [stats, userPosts, followingStatus, profile] = await Promise.all([
         followService.getProfileStats(userId),
         groupPostsService.getUserPosts(userId),
         user && !isOwnProfile
           ? followService.isFollowing(user.id, userId)
           : Promise.resolve(false),
+        profileService.getProfile(userId),
       ]);
 
       setProfileStats(stats);
       setPosts(userPosts || []);
       setIsFollowing(followingStatus);
+      setBio(profile?.bio || "");
     } catch (error) {
       console.error("Erro ao carregar perfil:", error);
       toast({
@@ -180,9 +183,12 @@ const UserProfile = () => {
             {/* Info */}
             <div className="flex-1 space-y-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <h2 className="text-2xl font-bold mb-1">{profileStats.user_name}</h2>
-                  <p className="text-muted-foreground text-sm">@{userId.slice(0, 8)}</p>
+                  <p className="text-muted-foreground text-sm mb-2">@{userId.slice(0, 8)}</p>
+                  {bio && (
+                    <p className="text-sm text-foreground/90 mt-2">{bio}</p>
+                  )}
                 </div>
                 {!isOwnProfile && user && (
                   <Button

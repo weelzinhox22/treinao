@@ -12,6 +12,7 @@ export interface UserProfileStats {
   user_id: string;
   user_name: string;
   avatar_url?: string;
+  bio?: string;
   followers_count: number;
   following_count: number;
   posts_count: number;
@@ -268,7 +269,7 @@ class FollowService {
     if (!supabase) return null;
 
     try {
-      const [followers, following, posts] = await Promise.all([
+      const [followers, following, posts, userData] = await Promise.all([
         supabase
           .from('user_follows')
           .select('id', { count: 'exact', head: true })
@@ -281,6 +282,11 @@ class FollowService {
           .from('group_posts')
           .select('id, points', { count: 'exact' })
           .eq('user_id', userId.toString()),
+        supabase
+          .from('users')
+          .select('name, avatar_url, bio')
+          .eq('id', userId.toString())
+          .single(),
       ]);
 
       const postsData = posts.data || [];
@@ -288,7 +294,9 @@ class FollowService {
 
       return {
         user_id: userId,
-        user_name: 'Usuário',
+        user_name: userData.data?.name || 'Usuário',
+        avatar_url: userData.data?.avatar_url || undefined,
+        bio: userData.data?.bio || undefined,
         followers_count: followers.count || 0,
         following_count: following.count || 0,
         posts_count: posts.count || 0,

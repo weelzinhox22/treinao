@@ -163,13 +163,24 @@ export const profileService = {
     // Salvar no Supabase
     if (supabaseService.isConfigured() && supabase) {
       try {
+        const updateData: any = {
+          updated_at: updatedProfile.updated_at,
+        };
+
+        // Incluir campos que foram atualizados
+        if (updates.avatar_url !== undefined) {
+          updateData.avatar_url = updatedProfile.avatar_url;
+        }
+        if (updates.bio !== undefined) {
+          updateData.bio = updatedProfile.bio;
+        }
+        if (updates.name !== undefined) {
+          updateData.name = updatedProfile.name;
+        }
+
         const { error } = await supabase
           .from("users")
-          .update({
-            avatar_url: updatedProfile.avatar_url,
-            bio: updatedProfile.bio,
-            updated_at: updatedProfile.updated_at,
-          })
+          .update(updateData)
           .eq("id", userId);
 
         if (error) throw error;

@@ -204,13 +204,28 @@ export const groupPostsService = {
   async addComment(postId: string, userId: string, userName: string, userAvatarUrl: string | undefined, content: string): Promise<PostComment> {
     if (!supabase) throw new Error("Supabase não configurado");
 
+    // Buscar avatar_url do perfil do usuário se não foi fornecido
+    let avatarUrl = userAvatarUrl;
+    if (!avatarUrl) {
+      try {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("avatar_url")
+          .eq("id", userId)
+          .single();
+        avatarUrl = profile?.avatar_url || undefined;
+      } catch (error) {
+        console.warn("Erro ao buscar avatar do usuário:", error);
+      }
+    }
+
     const { data, error } = await supabase
       .from("group_post_comments")
       .insert({
         post_id: postId,
         user_id: userId,
         user_name: userName,
-        user_avatar_url: userAvatarUrl,
+        user_avatar_url: avatarUrl,
         content,
       })
       .select()
@@ -231,7 +246,32 @@ export const groupPostsService = {
       .order("created_at", { ascending: true });
 
     if (error) throw error;
-    return data;
+
+    // Se algum comentário não tiver avatar_url, buscar do perfil do usuário
+    const commentsWithAvatars = await Promise.all(
+      (data || []).map(async (comment: PostComment) => {
+        if (comment.user_avatar_url) {
+          return comment;
+        }
+
+        try {
+          const { data: profile } = await supabase
+            .from("users")
+            .select("avatar_url")
+            .eq("id", comment.user_id)
+            .single();
+
+          return {
+            ...comment,
+            user_avatar_url: profile?.avatar_url || undefined,
+          };
+        } catch {
+          return comment;
+        }
+      })
+    );
+
+    return commentsWithAvatars;
   },
 
   // Deletar comentário

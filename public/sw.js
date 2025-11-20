@@ -1,6 +1,6 @@
 // Service Worker para PWA e modo offline
-// VERSION: v2.1 - Corrigido para ignorar HEAD e chrome-extension
-const CACHE_NAME = 'strong-wel-v2.1';
+// VERSION: v2.2 - Corrigido para ignorar HEAD, POST e chrome-extension
+const CACHE_NAME = 'strong-wel-v2.2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -37,7 +37,7 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   
-  // Ignorar métodos não-GET
+  // Ignorar métodos não-GET (HEAD, POST, PUT, DELETE, etc)
   if (request.method !== 'GET') {
     return;
   }
@@ -49,24 +49,22 @@ self.addEventListener('fetch', (event) => {
       request.url.includes('chrome-extension://')) {
     return;
   }
-  
-  // Ignorar requisições HEAD
-  if (request.method === 'HEAD') {
-    return;
-  }
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Apenas cachear respostas bem-sucedidas e do tipo basic
+        // E apenas requisições GET
         if (response && 
             response.status === 200 && 
             response.type === 'basic' &&
             request.method === 'GET') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache).catch(() => {
-              // Ignorar erros de cache (ex: quota exceeded)
+            cache.put(event.request, responseToCache).catch((error) => {
+              // Ignorar erros de cache silenciosamente
+              // (ex: quota exceeded, método não suportado)
+              console.debug('Cache put failed (ignored):', error);
             });
           });
         }
