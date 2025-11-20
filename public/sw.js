@@ -1,6 +1,6 @@
 // Service Worker para PWA e modo offline
-// VERSION: v2.2 - Corrigido para ignorar HEAD, POST e chrome-extension
-const CACHE_NAME = 'strong-wel-v2.2';
+// VERSION: v2.3 - Corrigido para ignorar todos métodos não-GET antes de processar
+const CACHE_NAME = 'strong-wel-v2.3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -35,12 +35,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Ignorar requisições que não podem ser cacheadas
   const request = event.request;
-  const url = new URL(request.url);
   
-  // Ignorar métodos não-GET (HEAD, POST, PUT, DELETE, etc)
+  // CRÍTICO: Ignorar métodos não-GET ANTES de qualquer processamento
+  // HEAD, POST, PUT, PATCH, DELETE não podem ser cacheados
   if (request.method !== 'GET') {
+    // Não fazer nada, deixar a requisição passar normalmente
     return;
   }
+  
+  const url = new URL(request.url);
   
   // Ignorar chrome-extension, chrome://, etc
   if (url.protocol === 'chrome-extension:' || 
@@ -50,11 +53,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Apenas processar requisições GET
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Apenas cachear respostas bem-sucedidas e do tipo basic
-        // E apenas requisições GET
+        // Garantir que é GET (já verificamos antes, mas dupla verificação)
         if (response && 
             response.status === 200 && 
             response.type === 'basic' &&
@@ -64,7 +68,7 @@ self.addEventListener('fetch', (event) => {
             cache.put(event.request, responseToCache).catch((error) => {
               // Ignorar erros de cache silenciosamente
               // (ex: quota exceeded, método não suportado)
-              console.debug('Cache put failed (ignored):', error);
+              // Não logar para evitar spam no console
             });
           });
         }

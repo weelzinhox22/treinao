@@ -45,6 +45,7 @@ const UserProfile = () => {
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
   const [followers, setFollowers] = useState<any[]>([]);
   const [followingList, setFollowingList] = useState<any[]>([]);
+  const [bio, setBio] = useState<string>("");
 
   const isOwnProfile = user?.id === userId;
 
