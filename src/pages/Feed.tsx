@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,7 @@ const Feed = () => {
   const [globalRankingOpen, setGlobalRankingOpen] = useState(false);
   const [myGroupsDialogOpen, setMyGroupsDialogOpen] = useState(false);
   const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set());
+  const [likedTreinos, setLikedTreinos] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadFeed();
@@ -92,7 +93,7 @@ const Feed = () => {
 
   const loadFeed = async () => {
     if (!user) return;
-    
+
     try {
       const [feedData, workoutsData, followingData] = await Promise.all([
         socialService.getFeed(50),
@@ -102,6 +103,16 @@ const Feed = () => {
       setFeed(feedData);
       setQuickWorkouts(workoutsData);
       setFollowingPosts(followingData);
+      
+      // Carregar likes após carregar o feed
+      const likedSet = new Set<string>();
+      for (const sharedTreino of feedData) {
+        const hasLiked = await socialService.hasUserLiked(sharedTreino.id, user.id);
+        if (hasLiked) {
+          likedSet.add(sharedTreino.id);
+        }
+      }
+      setLikedTreinos(likedSet);
     } catch (error) {
       console.error("Erro ao carregar feed:", error);
     } finally {
@@ -113,8 +124,20 @@ const Feed = () => {
     if (!user) return;
 
     try {
-      const liked = await socialService.likeTreino(sharedTreinoId, user.id);
+      const liked = await socialService.likeTreino(sharedTreinoId, user.id, user.name);
+      
+      // Atualizar estado local
+      const newLikedTreinos = new Set(likedTreinos);
+      if (liked) {
+        newLikedTreinos.add(sharedTreinoId);
+      } else {
+        newLikedTreinos.delete(sharedTreinoId);
+      }
+      setLikedTreinos(newLikedTreinos);
+      
+      // Recarregar feed para atualizar contadores
       loadFeed();
+      
       toast({
         title: liked ? "Curtido!" : "Descurtido",
         description: liked ? "Você curtiu este treino" : "Você removeu sua curtida",
@@ -361,7 +384,10 @@ const Feed = () => {
                   return (
                     <Card key={workout.id} className="p-4 gradient-card border-border/50 shadow-card hover:border-primary/30 transition-colors">
                       <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Link
+                          to={`/perfil/${workout.user_id}`}
+                          className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+                        >
                           <ProfileAvatar
                             userId={workout.user_id}
                             userName={workout.user_name}
@@ -383,7 +409,7 @@ const Feed = () => {
                               })}
                             </p>
                           </div>
-                        </div>
+                        </Link>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="flex items-center gap-1.5">
                             <Trophy className="h-4 w-4 text-primary" />
@@ -476,7 +502,7 @@ const Feed = () => {
                 {/* Shared Treinos */}
                 {feed.map((sharedTreino) => {
               const treino = sharedTreino.treinoData || getTreinoDetails(sharedTreino.treinoId);
-              const hasLiked = user ? socialService.hasUserLiked(sharedTreino.id, user.id) : false;
+              const hasLiked = likedTreinos.has(sharedTreino.id);
               const dailyEmoji = getDailyEmojiForUser(sharedTreino.userId, new Date(sharedTreino.sharedAt));
 
               return (
@@ -486,7 +512,10 @@ const Feed = () => {
                 >
                   {/* Header do post */}
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Link
+                      to={`/perfil/${sharedTreino.userId}`}
+                      className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+                    >
                       <ProfileAvatar
                         userId={sharedTreino.userId}
                         userName={sharedTreino.userName}
@@ -508,7 +537,7 @@ const Feed = () => {
                           })}
                         </p>
                       </div>
-                    </div>
+                    </Link>
                     {sharedTreino.userId === user?.id ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -726,7 +755,10 @@ const Feed = () => {
                   return (
                     <Card key={workout.id} className="p-4 gradient-card border-border/50 shadow-card hover:border-primary/30 transition-colors">
                       <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Link
+                          to={`/perfil/${workout.user_id}`}
+                          className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+                        >
                           <ProfileAvatar
                             userId={workout.user_id}
                             userName={workout.user_name}
@@ -748,7 +780,7 @@ const Feed = () => {
                               })}
                             </p>
                           </div>
-                        </div>
+                        </Link>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <Trophy className="h-4 w-4 text-primary" />
                           <span className="font-bold text-primary text-sm">{workout.points}</span>
@@ -815,7 +847,7 @@ const Feed = () => {
               <div className="space-y-4">
                 {feed.map((sharedTreino) => {
                   const treino = sharedTreino.treinoData || getTreinoDetails(sharedTreino.treinoId);
-                  const hasLiked = user ? socialService.hasUserLiked(sharedTreino.id, user.id) : false;
+                  const hasLiked = likedTreinos.has(sharedTreino.id);
 
                   return (
                     <Card
@@ -824,7 +856,10 @@ const Feed = () => {
                     >
                       {/* Header do post */}
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
+                        <Link
+                          to={`/perfil/${sharedTreino.userId}`}
+                          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                        >
                           <ProfileAvatar
                             userId={sharedTreino.userId}
                             userName={sharedTreino.userName}
@@ -841,7 +876,7 @@ const Feed = () => {
                               })}
                             </p>
                           </div>
-                        </div>
+                        </Link>
                         {sharedTreino.userId === user?.id ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -1043,18 +1078,26 @@ const Feed = () => {
                 ) : (
                   comments.map((comment) => (
                     <div key={comment.id} className="flex gap-3">
-                      <ProfileAvatar
-                        userId={comment.userId}
-                        userName={comment.userName}
-                        size="sm"
-                      />
+                      <Link
+                        to={`/perfil/${comment.userId}`}
+                        className="hover:opacity-80 transition-opacity"
+                      >
+                        <ProfileAvatar
+                          userId={comment.userId}
+                          userName={comment.userName}
+                          size="sm"
+                        />
+                      </Link>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <Link
+                          to={`/perfil/${comment.userId}`}
+                          className="flex items-center gap-2 mb-1 hover:opacity-80 transition-opacity"
+                        >
                           <p className="font-semibold text-sm">{comment.userName}</p>
                           <p className="text-xs text-muted-foreground">
                             {new Date(comment.createdAt).toLocaleDateString("pt-BR")}
                           </p>
-                        </div>
+                        </Link>
                         <p className="text-sm">{comment.comment}</p>
                       </div>
                     </div>

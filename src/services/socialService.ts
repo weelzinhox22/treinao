@@ -213,7 +213,77 @@ export const socialService = {
   },
 
   // Curtir treino
-  likeTreino: async (sharedTreinoId: string, userId: string): Promise<boolean> => {
+  likeTreino: async (sharedTreinoId: string, userId: string, userName?: string): Promise<boolean> => {
+    // Verificar se já curtiu no Supabase
+    if (supabaseService.isConfigured() && supabase) {
+      try {
+        // Buscar like existente
+        const { data: existingLike } = await supabase
+          .from("treino_likes")
+          .select("id")
+          .eq("shared_treino_id", sharedTreinoId)
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (existingLike) {
+          // Descurtir - deletar do Supabase
+          await supabase
+            .from("treino_likes")
+            .delete()
+            .eq("id", existingLike.id);
+          
+          // Atualizar localStorage
+          const likes = getLikesFromStorage();
+          if (likes[sharedTreinoId]) {
+            likes[sharedTreinoId] = likes[sharedTreinoId].filter((id) => id !== userId);
+            saveLikesToStorage(likes);
+          }
+          
+          return false;
+        } else {
+          // Curtir - inserir no Supabase
+          // Buscar nome do usuário se não fornecido
+          let finalUserName = userName;
+          if (!finalUserName) {
+            try {
+              const { data: userData } = await supabase
+                .from("users")
+                .select("name")
+                .eq("id", userId)
+                .single();
+              finalUserName = userData?.name || "Alguém";
+            } catch {
+              finalUserName = "Alguém";
+            }
+          }
+
+          await supabase
+            .from("treino_likes")
+            .insert({
+              shared_treino_id: sharedTreinoId,
+              user_id: userId,
+              user_name: finalUserName,
+            });
+          
+          // Atualizar localStorage
+          const likes = getLikesFromStorage();
+          if (!likes[sharedTreinoId]) {
+            likes[sharedTreinoId] = [];
+          }
+          if (!likes[sharedTreinoId].includes(userId)) {
+            likes[sharedTreinoId].push(userId);
+            saveLikesToStorage(likes);
+          }
+          
+          return true;
+        }
+      } catch (error) {
+        console.error("Erro ao curtir/descurtir no Supabase:", error);
+        // Fallback para localStorage
+      }
+    }
+
+    // Fallback para localStorage
     const likes = getLikesFromStorage();
     if (!likes[sharedTreinoId]) {
       likes[sharedTreinoId] = [];
@@ -230,18 +300,6 @@ export const socialService = {
 
     saveLikesToStorage(likes);
 
-    // Atualizar no Supabase
-    if (supabaseService.isConfigured() && supabase) {
-      try {
-        await supabase
-          .from("shared_treinos")
-          .update({ likes: likes[sharedTreinoId].length })
-          .eq("id", sharedTreinoId);
-      } catch (error) {
-        console.error("Erro ao atualizar like no Supabase:", error);
-      }
-    }
-
     // Atualizar contador no shared treino (local)
     const allShared = getSharedTreinosFromStorage();
     const shared = allShared.find((s) => s.id === sharedTreinoId);
@@ -254,7 +312,24 @@ export const socialService = {
   },
 
   // Verificar se usuário curtiu
-  hasUserLiked: (sharedTreinoId: string, userId: string): boolean => {
+  hasUserLiked: async (sharedTreinoId: string, userId: string): Promise<boolean> => {
+    // Verificar no Supabase primeiro
+    if (supabaseService.isConfigured() && supabase) {
+      try {
+        const { data } = await supabase
+          .from("treino_likes")
+          .select("id")
+          .eq("shared_treino_id", sharedTreinoId)
+          .eq("user_id", userId)
+          .maybeSingle();
+        
+        return !!data;
+      } catch (error) {
+        console.error("Erro ao verificar like no Supabase:", error);
+      }
+    }
+    
+    // Fallback para localStorage
     const likes = getLikesFromStorage();
     return likes[sharedTreinoId]?.includes(userId) ?? false;
   },

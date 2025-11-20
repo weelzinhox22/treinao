@@ -1,6 +1,6 @@
 // Service Worker para PWA e modo offline
-// VERSION: v2.3 - Corrigido para ignorar todos métodos não-GET antes de processar
-const CACHE_NAME = 'strong-wel-v2.3';
+// VERSION: v2.4 - Ignora completamente métodos não-GET e esquemas não suportados
+const CACHE_NAME = 'strong-wel-v2.4';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -33,42 +33,57 @@ self.addEventListener('activate', (event) => {
 
 // Interceptar requisições (estratégia: Network First, Cache Fallback)
 self.addEventListener('fetch', (event) => {
-  // Ignorar requisições que não podem ser cacheadas
   const request = event.request;
   
   // CRÍTICO: Ignorar métodos não-GET ANTES de qualquer processamento
   // HEAD, POST, PUT, PATCH, DELETE não podem ser cacheados
   if (request.method !== 'GET') {
     // Não fazer nada, deixar a requisição passar normalmente
+    // Não usar event.respondWith para métodos não-GET
     return;
   }
   
-  const url = new URL(request.url);
-  
-  // Ignorar chrome-extension, chrome://, etc
-  if (url.protocol === 'chrome-extension:' || 
-      url.protocol === 'chrome:' ||
-      url.hostname === 'chrome-extension' ||
-      request.url.includes('chrome-extension://')) {
+  // Verificar URL antes de processar
+  try {
+    const url = new URL(request.url);
+    
+    // Ignorar esquemas não suportados
+    if (url.protocol === 'chrome-extension:' || 
+        url.protocol === 'chrome:' ||
+        url.protocol === 'moz-extension:' ||
+        url.protocol === 'safari-extension:' ||
+        url.hostname === 'chrome-extension' ||
+        request.url.includes('chrome-extension://') ||
+        request.url.includes('moz-extension://')) {
+      return;
+    }
+    
+    // Ignorar requisições para APIs do Supabase (não cachear)
+    if (url.hostname.includes('supabase.co') || 
+        url.pathname.includes('/rest/v1/') ||
+        url.pathname.includes('/storage/v1/')) {
+      // Deixar passar sem cachear
+      return;
+    }
+  } catch (e) {
+    // Se não conseguir fazer parse da URL, ignorar
     return;
   }
 
-  // Apenas processar requisições GET
+  // Apenas processar requisições GET válidas
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Apenas cachear respostas bem-sucedidas e do tipo basic
-        // Garantir que é GET (já verificamos antes, mas dupla verificação)
         if (response && 
             response.status === 200 && 
             response.type === 'basic' &&
             request.method === 'GET') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache).catch((error) => {
-              // Ignorar erros de cache silenciosamente
-              // (ex: quota exceeded, método não suportado)
-              // Não logar para evitar spam no console
+            // Tentar cachear, mas ignorar erros silenciosamente
+            cache.put(event.request, responseToCache).catch(() => {
+              // Ignorar todos os erros de cache (quota, método não suportado, etc)
             });
           });
         }
