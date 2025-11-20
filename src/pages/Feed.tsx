@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import LazyImage from "@/components/LazyImage";
 import { getDailyEmojiForUser } from "@/utils/dailyEmoji";
+import FeedReactionButton from "@/components/FeedReactionButton";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,11 @@ const Feed = () => {
   const [myGroupsDialogOpen, setMyGroupsDialogOpen] = useState(false);
   const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set());
   const [likedTreinos, setLikedTreinos] = useState<Set<string>>(new Set());
+  const [likedQuickWorkouts, setLikedQuickWorkouts] = useState<Set<string>>(new Set());
+  const [selectedQuickWorkout, setSelectedQuickWorkout] = useState<QuickWorkout | null>(null);
+  const [quickWorkoutComments, setQuickWorkoutComments] = useState<any[]>([]);
+  const [sharedTreinoReactions, setSharedTreinoReactions] = useState<Record<string, any[]>>({});
+  const [quickWorkoutReactions, setQuickWorkoutReactions] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     loadFeed();
@@ -113,6 +119,20 @@ const Feed = () => {
         }
       }
       setLikedTreinos(likedSet);
+
+      // Carregar likes dos QuickWorkouts
+      const likedQuickSet = new Set<string>();
+      for (const workout of workoutsData) {
+        try {
+          const hasLiked = await groupService.hasLikedQuickWorkout(workout.id, user.id);
+          if (hasLiked) {
+            likedQuickSet.add(workout.id);
+          }
+        } catch (error) {
+          console.error("Erro ao verificar like do QuickWorkout:", error);
+        }
+      }
+      setLikedQuickWorkouts(likedQuickSet);
     } catch (error) {
       console.error("Erro ao carregar feed:", error);
     } finally {
@@ -135,8 +155,14 @@ const Feed = () => {
       }
       setLikedTreinos(newLikedTreinos);
       
-      // Recarregar feed para atualizar contadores
-      loadFeed();
+      // Atualizar contador local sem recarregar todo o feed
+      setFeed(prevFeed => 
+        prevFeed.map(treino => 
+          treino.id === sharedTreinoId 
+            ? { ...treino, likes: liked ? treino.likes + 1 : Math.max(0, treino.likes - 1) }
+            : treino
+        )
+      );
       
       toast({
         title: liked ? "Curtido!" : "Descurtido",
@@ -172,7 +198,15 @@ const Feed = () => {
       const updatedComments = await socialService.getComments(selectedTreino.id);
       setComments(updatedComments);
       setNewComment("");
-      loadFeed();
+      
+      // Atualizar contador local sem recarregar todo o feed
+      setFeed(prevFeed => 
+        prevFeed.map(treino => 
+          treino.id === selectedTreino.id 
+            ? { ...treino, comments: treino.comments + 1 }
+            : treino
+        )
+      );
       toast({
         title: "Comentário adicionado!",
         description: "Seu comentário foi publicado.",
@@ -183,6 +217,139 @@ const Feed = () => {
         description: "Não foi possível adicionar o comentário.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleLikeQuickWorkout = async (workoutId: string) => {
+    if (!user) return;
+
+    try {
+      const liked = await groupService.likeQuickWorkout(workoutId, user.id, user.name);
+      
+      // Atualizar estado local
+      const newLiked = new Set(likedQuickWorkouts);
+      if (liked) {
+        newLiked.add(workoutId);
+      } else {
+        newLiked.delete(workoutId);
+      }
+      setLikedQuickWorkouts(newLiked);
+      
+      // Atualizar contador local
+      setQuickWorkouts(prevWorkouts =>
+        prevWorkouts.map(workout =>
+          workout.id === workoutId
+            ? { ...workout, likes_count: liked ? (workout.likes_count || 0) + 1 : Math.max(0, (workout.likes_count || 0) - 1) }
+            : workout
+        )
+      );
+      
+      toast({
+        title: liked ? "Curtido!" : "Descurtido",
+        description: liked ? "Você curtiu este treino" : "Você removeu sua curtida",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível curtir o treino.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCommentQuickWorkout = async (workout: QuickWorkout) => {
+    setSelectedQuickWorkout(workout);
+    try {
+      const comments = await groupService.getQuickWorkoutComments(workout.id);
+      setQuickWorkoutComments(comments);
+      setCommentDialogOpen(true);
+    } catch (error) {
+      console.error("Erro ao carregar comentários:", error);
+      setQuickWorkoutComments([]);
+      setCommentDialogOpen(true);
+    }
+  };
+
+  const submitQuickWorkoutComment = async () => {
+    if (!user || !selectedQuickWorkout || !newComment.trim()) return;
+
+    try {
+      await groupService.addQuickWorkoutComment(selectedQuickWorkout.id, user.id, user.name, newComment);
+      const updatedComments = await groupService.getQuickWorkoutComments(selectedQuickWorkout.id);
+      setQuickWorkoutComments(updatedComments);
+      setNewComment("");
+      
+      // Atualizar contador local
+      setQuickWorkouts(prevWorkouts =>
+        prevWorkouts.map(workout =>
+          workout.id === selectedQuickWorkout.id
+            ? { ...workout, comments_count: (workout.comments_count || 0) + 1 }
+            : workout
+        )
+      );
+      
+      toast({
+        title: "Comentário adicionado!",
+        description: "Seu comentário foi publicado.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o comentário.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadSharedTreinoReactions = async (sharedTreinoId: string) => {
+    if (!user) return;
+    try {
+      const reactions = await socialService.getReactions(sharedTreinoId);
+      setSharedTreinoReactions(prev => ({
+        ...prev,
+        [sharedTreinoId]: reactions,
+      }));
+    } catch (error) {
+      console.error("Erro ao carregar reações:", error);
+    }
+  };
+
+  const loadQuickWorkoutReactions = async (workoutId: string) => {
+    if (!user) return;
+    try {
+      const reactions = await groupService.getQuickWorkoutReactions(workoutId);
+      setQuickWorkoutReactions(prev => ({
+        ...prev,
+        [workoutId]: reactions,
+      }));
+    } catch (error) {
+      console.error("Erro ao carregar reações:", error);
+    }
+  };
+
+  const loadSharedTreinoReactions = async (sharedTreinoId: string) => {
+    if (!user) return;
+    try {
+      const reactions = await socialService.getReactions(sharedTreinoId);
+      setSharedTreinoReactions(prev => ({
+        ...prev,
+        [sharedTreinoId]: reactions,
+      }));
+    } catch (error) {
+      console.error("Erro ao carregar reações:", error);
+    }
+  };
+
+  const loadQuickWorkoutReactions = async (workoutId: string) => {
+    if (!user) return;
+    try {
+      const reactions = await groupService.getQuickWorkoutReactions(workoutId);
+      setQuickWorkoutReactions(prev => ({
+        ...prev,
+        [workoutId]: reactions,
+      }));
+    } catch (error) {
+      console.error("Erro ao carregar reações:", error);
     }
   };
 
@@ -494,6 +661,77 @@ const Feed = () => {
                             ))}
                           </div>
                         )}
+
+                        {/* Reações existentes */}
+                        {quickWorkoutReactions[workout.id] && quickWorkoutReactions[workout.id].length > 0 && (() => {
+                          const grouped = quickWorkoutReactions[workout.id].reduce((acc: Record<string, { emoji: string; count: number; users: string[] }>, reaction) => {
+                            if (!acc[reaction.emoji]) {
+                              acc[reaction.emoji] = {
+                                emoji: reaction.emoji,
+                                count: 0,
+                                users: [],
+                              };
+                            }
+                            acc[reaction.emoji].count++;
+                            acc[reaction.emoji].users.push(reaction.user_name);
+                            return acc;
+                          }, {});
+                          
+                          return (
+                            <div className="flex items-center gap-2 flex-wrap pt-2 pb-1">
+                              {Object.values(grouped).map((reaction, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-1 hover:bg-muted transition-colors cursor-pointer"
+                                  title={reaction.users.join(", ")}
+                                >
+                                  <span className="text-base">{reaction.emoji}</span>
+                                  <span className="text-xs text-muted-foreground">{reaction.count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Ações - Like e Comentário */}
+                        <div className="flex items-center gap-4 pt-3 border-t border-border mt-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleLikeQuickWorkout(workout.id)}
+                            className={cn(
+                              "gap-2",
+                              likedQuickWorkouts.has(workout.id) && "text-red-500 hover:text-red-500"
+                            )}
+                          >
+                            <Heart
+                              className={cn(
+                                "h-4 w-4",
+                                likedQuickWorkouts.has(workout.id) && "fill-current"
+                              )}
+                            />
+                            <span>{workout.likes_count || 0}</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCommentQuickWorkout(workout)}
+                            className="gap-2"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            <span>{workout.comments_count || 0}</span>
+                          </Button>
+                          <FeedReactionButton
+                            type="quick_workout"
+                            itemId={workout.id}
+                            currentUserId={user?.id || ""}
+                            currentUserName={user?.name || ""}
+                            onReactionAdded={() => loadQuickWorkoutReactions(workout.id)}
+                            onAddReaction={async (id, userId, userName, emoji) => {
+                              await groupService.addQuickWorkoutReaction(id, userId, userName, emoji);
+                            }}
+                          />
+                        </div>
                       </div>
                     </Card>
                   );
@@ -825,6 +1063,77 @@ const Feed = () => {
                             ))}
                           </div>
                         )}
+
+                        {/* Reações existentes */}
+                        {quickWorkoutReactions[workout.id] && quickWorkoutReactions[workout.id].length > 0 && (() => {
+                          const grouped = quickWorkoutReactions[workout.id].reduce((acc: Record<string, { emoji: string; count: number; users: string[] }>, reaction) => {
+                            if (!acc[reaction.emoji]) {
+                              acc[reaction.emoji] = {
+                                emoji: reaction.emoji,
+                                count: 0,
+                                users: [],
+                              };
+                            }
+                            acc[reaction.emoji].count++;
+                            acc[reaction.emoji].users.push(reaction.user_name);
+                            return acc;
+                          }, {});
+                          
+                          return (
+                            <div className="flex items-center gap-2 flex-wrap pt-2 pb-1">
+                              {Object.values(grouped).map((reaction, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-1 hover:bg-muted transition-colors cursor-pointer"
+                                  title={reaction.users.join(", ")}
+                                >
+                                  <span className="text-base">{reaction.emoji}</span>
+                                  <span className="text-xs text-muted-foreground">{reaction.count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Ações - Like e Comentário */}
+                        <div className="flex items-center gap-4 pt-3 border-t border-border mt-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleLikeQuickWorkout(workout.id)}
+                            className={cn(
+                              "gap-2",
+                              likedQuickWorkouts.has(workout.id) && "text-red-500 hover:text-red-500"
+                            )}
+                          >
+                            <Heart
+                              className={cn(
+                                "h-4 w-4",
+                                likedQuickWorkouts.has(workout.id) && "fill-current"
+                              )}
+                            />
+                            <span>{workout.likes_count || 0}</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCommentQuickWorkout(workout)}
+                            className="gap-2"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            <span>{workout.comments_count || 0}</span>
+                          </Button>
+                          <FeedReactionButton
+                            type="quick_workout"
+                            itemId={workout.id}
+                            currentUserId={user?.id || ""}
+                            currentUserName={user?.name || ""}
+                            onReactionAdded={() => loadQuickWorkoutReactions(workout.id)}
+                            onAddReaction={async (id, userId, userName, emoji) => {
+                              await groupService.addQuickWorkoutReaction(id, userId, userName, emoji);
+                            }}
+                          />
+                        </div>
                       </div>
                     </Card>
                   );
@@ -1064,41 +1373,45 @@ const Feed = () => {
             <DialogHeader>
               <DialogTitle>Comentários</DialogTitle>
               <DialogDescription>
-                {selectedTreino?.userName} compartilhou este treino
+                {selectedTreino 
+                  ? `${selectedTreino.userName} compartilhou este treino`
+                  : selectedQuickWorkout 
+                    ? `${selectedQuickWorkout.user_name} postou este treino rápido`
+                    : "Comentários"}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 mt-4">
               {/* Lista de comentários */}
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {comments.length === 0 ? (
+                {(selectedTreino ? comments : quickWorkoutComments).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Nenhum comentário ainda. Seja o primeiro!
                   </p>
                 ) : (
-                  comments.map((comment) => (
+                  (selectedTreino ? comments : quickWorkoutComments).map((comment) => (
                     <div key={comment.id} className="flex gap-3">
                       <Link
-                        to={`/perfil/${comment.userId}`}
+                        to={`/perfil/${selectedTreino ? comment.userId : comment.user_id}`}
                         className="hover:opacity-80 transition-opacity"
                       >
                         <ProfileAvatar
-                          userId={comment.userId}
-                          userName={comment.userName}
+                          userId={selectedTreino ? comment.userId : comment.user_id}
+                          userName={selectedTreino ? comment.userName : comment.user_name}
                           size="sm"
                         />
                       </Link>
                       <div className="flex-1">
                         <Link
-                          to={`/perfil/${comment.userId}`}
+                          to={`/perfil/${selectedTreino ? comment.userId : comment.user_id}`}
                           className="flex items-center gap-2 mb-1 hover:opacity-80 transition-opacity"
                         >
-                          <p className="font-semibold text-sm">{comment.userName}</p>
+                          <p className="font-semibold text-sm">{selectedTreino ? comment.userName : comment.user_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(comment.createdAt).toLocaleDateString("pt-BR")}
+                            {new Date(selectedTreino ? comment.createdAt : comment.created_at).toLocaleDateString("pt-BR")}
                           </p>
                         </Link>
-                        <p className="text-sm">{comment.comment}</p>
+                        <p className="text-sm">{selectedTreino ? comment.comment : comment.comment}</p>
                       </div>
                     </div>
                   ))
@@ -1114,11 +1427,24 @@ const Feed = () => {
                     onChange={(e) => setNewComment(e.target.value)}
                     onKeyPress={(e) => {
                       if (e.key === "Enter" && newComment.trim()) {
-                        submitComment();
+                        if (selectedTreino) {
+                          submitComment();
+                        } else if (selectedQuickWorkout) {
+                          submitQuickWorkoutComment();
+                        }
                       }
                     }}
                   />
-                  <Button onClick={submitComment} disabled={!newComment.trim()}>
+                  <Button 
+                    onClick={() => {
+                      if (selectedTreino) {
+                        submitComment();
+                      } else if (selectedQuickWorkout) {
+                        submitQuickWorkoutComment();
+                      }
+                    }}
+                    disabled={!newComment.trim()}
+                  >
                     Enviar
                   </Button>
                 </div>

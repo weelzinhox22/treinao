@@ -815,6 +815,140 @@ export const groupService = {
     return true;
   },
 
+  // Curtir QuickWorkout
+  likeQuickWorkout: async (workoutId: string, userId: string, userName?: string): Promise<boolean> => {
+    if (!supabase) {
+      // Fallback para localStorage
+      const workouts = getFromStorage<QuickWorkout>(QUICK_WORKOUTS_KEY);
+      const workout = workouts.find(w => w.id === workoutId);
+      if (workout) {
+        // Simular like no localStorage
+        return true;
+      }
+      return false;
+    }
+
+    try {
+      // Verificar se já curtiu
+      const { data: existingLike } = await supabase
+        .from("quick_workout_likes")
+        .select("id")
+        .eq("workout_id", workoutId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existingLike) {
+        // Descurtir
+        await supabase
+          .from("quick_workout_likes")
+          .delete()
+          .eq("id", existingLike.id);
+        return false;
+      } else {
+        // Curtir
+        let finalUserName = userName;
+        if (!finalUserName) {
+          try {
+            const { data: userData } = await supabase
+              .from("users")
+              .select("name")
+              .eq("id", userId)
+              .single();
+            finalUserName = userData?.name || "Alguém";
+          } catch {
+            finalUserName = "Alguém";
+          }
+        }
+
+        await supabase
+          .from("quick_workout_likes")
+          .insert({
+            workout_id: workoutId,
+            user_id: userId,
+            user_name: finalUserName,
+          });
+        return true;
+      }
+    } catch (error) {
+      console.error("Erro ao curtir/descurtir QuickWorkout:", error);
+      return false;
+    }
+  },
+
+  // Adicionar comentário em QuickWorkout
+  addQuickWorkoutComment: async (
+    workoutId: string,
+    userId: string,
+    userName: string,
+    comment: string
+  ): Promise<any> => {
+    if (!supabase) {
+      throw new Error("Supabase não configurado");
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("quick_workout_comments")
+        .insert({
+          workout_id: workoutId,
+          user_id: userId,
+          user_name: userName,
+          comment: comment,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Erro ao adicionar comentário:", error);
+      throw error;
+    }
+  },
+
+  // Obter comentários de QuickWorkout
+  getQuickWorkoutComments: async (workoutId: string): Promise<any[]> => {
+    if (!supabase) {
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("quick_workout_comments")
+        .select("*")
+        .eq("workout_id", workoutId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Erro ao buscar comentários:", error);
+      return [];
+    }
+  },
+
+  // Verificar se usuário curtiu QuickWorkout
+  hasLikedQuickWorkout: async (workoutId: string, userId: string): Promise<boolean> => {
+    if (!supabase) {
+      return false;
+    }
+
+    try {
+      const { data } = await supabase
+        .from("quick_workout_likes")
+        .select("id")
+        .eq("workout_id", workoutId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      
+      return !!data;
+    } catch (error) {
+      console.error("Erro ao verificar like:", error);
+      return false;
+    }
+  },
+
   getFeedWorkouts: async (groupId?: string, challengeId?: string, limit: number = 50): Promise<QuickWorkout[]> => {
     if (supabaseService.isConfigured() && supabase) {
       try {
@@ -828,7 +962,40 @@ export const groupService = {
           .order("created_at", { ascending: false })
           .limit(limit);
 
-        if (!error && data) return data;
+        if (!error && data) {
+          // Buscar contadores de likes e comentários para cada workout
+          const workoutsWithCounts = await Promise.all(
+            data.map(async (item: any) => {
+              try {
+                const [likesResult, commentsResult] = await Promise.all([
+                  supabase
+                    .from("quick_workout_likes")
+                    .select("id", { count: "exact", head: true })
+                    .eq("workout_id", item.id),
+                  supabase
+                    .from("quick_workout_comments")
+                    .select("id", { count: "exact", head: true })
+                    .eq("workout_id", item.id),
+                ]);
+
+                return {
+                  ...item,
+                  likes_count: likesResult.count || 0,
+                  comments_count: commentsResult.count || 0,
+                };
+              } catch (error) {
+                console.error("Erro ao buscar contadores:", error);
+                return {
+                  ...item,
+                  likes_count: 0,
+                  comments_count: 0,
+                };
+              }
+            })
+          );
+
+          return workoutsWithCounts;
+        }
       } catch (error) {
         console.error("Erro ao buscar feed:", error);
       }
@@ -844,6 +1011,77 @@ export const groupService = {
     return filtered
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, limit);
+  },
+
+  // Adicionar reação em QuickWorkout
+  addQuickWorkoutReaction: async (
+    workoutId: string,
+    userId: string,
+    userName: string,
+    emoji: string
+  ): Promise<void> => {
+    if (!supabase) {
+      throw new Error("Supabase não configurado");
+    }
+
+    try {
+      // Verificar se já reagiu com este emoji
+      const { data: existing } = await supabase
+        .from("quick_workout_reactions")
+        .select("id")
+        .eq("workout_id", workoutId)
+        .eq("user_id", userId)
+        .eq("emoji", emoji)
+        .maybeSingle();
+
+      if (existing) {
+        // Remover reação se já existe
+        await supabase
+          .from("quick_workout_reactions")
+          .delete()
+          .eq("id", existing.id);
+      } else {
+        // Adicionar reação
+        await supabase
+          .from("quick_workout_reactions")
+          .insert({
+            workout_id: workoutId,
+            user_id: userId,
+            user_name: userName,
+            emoji: emoji,
+          });
+      }
+    } catch (error) {
+      console.error("Erro ao adicionar reação:", error);
+      throw error;
+    }
+  },
+
+  // Buscar reações de um QuickWorkout
+  getQuickWorkoutReactions: async (workoutId: string): Promise<Array<{
+    id: string;
+    user_id: string;
+    user_name: string;
+    emoji: string;
+    created_at: string;
+  }>> => {
+    if (!supabase) {
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("quick_workout_reactions")
+        .select("*")
+        .eq("workout_id", workoutId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Erro ao buscar reações:", error);
+      return [];
+    }
   },
 };
 

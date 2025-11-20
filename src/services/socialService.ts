@@ -350,19 +350,26 @@ export const socialService = {
       createdAt: new Date().toISOString(),
     };
 
-    // Salvar no Supabase
-    if (supabaseService.isConfigured()) {
+    // Salvar no Supabase diretamente (não usar saveData para garantir que o trigger funcione)
+    if (supabaseService.isConfigured() && supabase) {
       try {
-        await supabaseService.saveData("treino_comments", userId, {
-          id: newComment.id,
-          shared_treino_id: sharedTreinoId,
-          user_id: userId,
-          user_name: userName,
-          comment: comment,
-          created_at: newComment.createdAt,
-        });
+        const { data, error } = await supabase
+          .from("treino_comments")
+          .insert({
+            id: newComment.id,
+            shared_treino_id: sharedTreinoId,
+            user_id: userId,
+            user_name: userName,
+            comment: comment,
+            created_at: newComment.createdAt,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
       } catch (error) {
         console.error("Erro ao salvar comentário no Supabase:", error);
+        // Continuar com fallback
       }
     }
 
@@ -465,6 +472,77 @@ export const socialService = {
     saveLikesToStorage(likes);
 
     return true;
+  },
+
+  // Adicionar reação em treino compartilhado
+  addReaction: async (
+    sharedTreinoId: string,
+    userId: string,
+    userName: string,
+    emoji: string
+  ): Promise<void> => {
+    if (!supabaseService.isConfigured() || !supabase) {
+      throw new Error("Supabase não configurado");
+    }
+
+    try {
+      // Verificar se já reagiu com este emoji
+      const { data: existing } = await supabase
+        .from("shared_treino_reactions")
+        .select("id")
+        .eq("shared_treino_id", sharedTreinoId)
+        .eq("user_id", userId)
+        .eq("emoji", emoji)
+        .maybeSingle();
+
+      if (existing) {
+        // Remover reação se já existe
+        await supabase
+          .from("shared_treino_reactions")
+          .delete()
+          .eq("id", existing.id);
+      } else {
+        // Adicionar reação
+        await supabase
+          .from("shared_treino_reactions")
+          .insert({
+            shared_treino_id: sharedTreinoId,
+            user_id: userId,
+            user_name: userName,
+            emoji: emoji,
+          });
+      }
+    } catch (error) {
+      console.error("Erro ao adicionar reação:", error);
+      throw error;
+    }
+  },
+
+  // Buscar reações de um treino compartilhado
+  getReactions: async (sharedTreinoId: string): Promise<Array<{
+    id: string;
+    user_id: string;
+    user_name: string;
+    emoji: string;
+    created_at: string;
+  }>> => {
+    if (!supabaseService.isConfigured() || !supabase) {
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("shared_treino_reactions")
+        .select("*")
+        .eq("shared_treino_id", sharedTreinoId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Erro ao buscar reações:", error);
+      return [];
+    }
   },
 };
 
