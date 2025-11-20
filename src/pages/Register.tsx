@@ -25,11 +25,10 @@ const Register = () => {
       await register(name, email, password);
       toast({
         title: "Conta criada com sucesso!",
-        description: "Verifique seu email para confirmar o cadastro antes de fazer login.",
-        duration: 8000,
+        description: "Bem-vindo ao TREINÃO DOS CARAS!",
       });
-      // Redirecionar para login ao invés de dashboard
-      setTimeout(() => navigate("/login"), 2000);
+      // Redirecionar para dashboard - usuário já está logado
+      navigate("/dashboard");
     } catch (error: any) {
       toast({
         title: "Erro ao criar conta",

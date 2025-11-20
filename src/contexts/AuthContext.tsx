@@ -152,11 +152,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Este email já está cadastrado. Faça login ou use outro email.");
     }
 
-    // Criar usuário no Supabase Auth
+    // Criar usuário no Supabase Auth (sem confirmação de email)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: undefined, // Não redirecionar para confirmação
         data: {
           name: name,
         },
@@ -188,8 +189,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Continuar mesmo assim, pois o usuário foi criado no Auth
     }
 
-    // Carregar usuário
-    await loadUserFromSupabase(authData.user);
+    // Fazer login automático após registro
+    // Se o Supabase não retornou sessão, fazer signIn
+    if (!authData.session && authData.user) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        console.error("Erro ao fazer login automático:", signInError);
+        // Mesmo assim, tentar carregar o usuário
+        await loadUserFromSupabase(authData.user);
+      } else if (signInData?.user) {
+        await loadUserFromSupabase(signInData.user);
+      }
+    } else if (authData.user) {
+      // Se já tem sessão, carregar usuário
+      await loadUserFromSupabase(authData.user);
+    }
   };
 
   const logout = async () => {
