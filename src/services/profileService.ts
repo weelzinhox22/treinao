@@ -1,0 +1,195 @@
+// Serviço para gerenciar perfil do usuário (foto de perfil)
+// ⚠️ SEGURANÇA: Conectado ao Supabase Storage com fallback para localStorage
+
+import { supabase } from "@/config/supabase";
+import { supabaseService } from "./supabaseService";
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+  bio?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const PROFILE_KEY = "user_profile";
+
+// Obter perfil do localStorage
+const getProfileFromStorage = (userId: string): UserProfile | null => {
+  try {
+    const stored = localStorage.getItem(`${PROFILE_KEY}_${userId}`);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Salvar perfil no localStorage
+const saveProfileToStorage = (profile: UserProfile): void => {
+  try {
+    localStorage.setItem(`${PROFILE_KEY}_${profile.id}`, JSON.stringify(profile));
+  } catch {
+    console.error("Erro ao salvar perfil");
+  }
+};
+
+export const profileService = {
+  // Upload de foto de perfil
+  uploadAvatar: async (userId: string, file: File): Promise<string> => {
+    if (!supabaseService.isConfigured() || !supabase) {
+      // Fallback: converter para base64 e salvar no localStorage
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          const profile = getProfileFromStorage(userId) || {
+            id: userId,
+            name: "",
+            email: "",
+          };
+          profile.avatar_url = base64;
+          saveProfileToStorage(profile);
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    try {
+      // Validar arquivo
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error("Arquivo muito grande. Máximo 5MB");
+      }
+
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Arquivo deve ser uma imagem");
+      }
+
+      // Criar nome único para o arquivo
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+
+      // Upload para Supabase Storage
+      const { data, error } = await supabase.storage
+        .from("avatars")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      // Obter URL pública
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(fileName);
+
+      // Atualizar perfil do usuário
+      await profileService.updateProfile(userId, { avatar_url: publicUrl });
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Erro ao fazer upload da foto:", error);
+      throw error;
+    }
+  },
+
+  // Obter perfil do usuário
+  getProfile: async (userId: string): Promise<UserProfile | null> => {
+    if (supabaseService.isConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .single();
+
+        if (!error && data) {
+          const profile: UserProfile = {
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            avatar_url: data.avatar_url,
+            bio: data.bio,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+          };
+          saveProfileToStorage(profile);
+          return profile;
+        }
+      } catch (error) {
+        console.error("Erro ao buscar perfil do Supabase:", error);
+      }
+    }
+
+    // Fallback para localStorage
+    return getProfileFromStorage(userId);
+  },
+
+  // Atualizar perfil
+  updateProfile: async (
+    userId: string,
+    updates: Partial<Omit<UserProfile, "id" | "created_at">>
+  ): Promise<UserProfile> => {
+    const currentProfile = getProfileFromStorage(userId) || {
+      id: userId,
+      name: "",
+      email: "",
+    };
+
+    const updatedProfile: UserProfile = {
+      ...currentProfile,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Salvar no Supabase
+    if (supabaseService.isConfigured() && supabase) {
+      try {
+        const { error } = await supabase
+          .from("users")
+          .update({
+            avatar_url: updatedProfile.avatar_url,
+            bio: updatedProfile.bio,
+            updated_at: updatedProfile.updated_at,
+          })
+          .eq("id", userId);
+
+        if (error) throw error;
+      } catch (error) {
+        console.error("Erro ao atualizar perfil no Supabase:", error);
+      }
+    }
+
+    // Sempre salvar localmente também
+    saveProfileToStorage(updatedProfile);
+
+    return updatedProfile;
+  },
+
+  // Deletar foto de perfil
+  deleteAvatar: async (userId: string): Promise<void> => {
+    const profile = getProfileFromStorage(userId);
+    if (!profile?.avatar_url) return;
+
+    // Se for URL do Supabase Storage, deletar do storage
+    if (supabaseService.isConfigured() && supabase && profile.avatar_url.includes("supabase.co")) {
+      try {
+        // Extrair caminho do arquivo da URL
+        const urlParts = profile.avatar_url.split("/");
+        const fileName = urlParts.slice(urlParts.indexOf("avatars") + 1).join("/");
+
+        await supabase.storage.from("avatars").remove([fileName]);
+      } catch (error) {
+        console.error("Erro ao deletar foto do storage:", error);
+      }
+    }
+
+    // Remover do perfil
+    await profileService.updateProfile(userId, { avatar_url: undefined });
+  },
+};
+

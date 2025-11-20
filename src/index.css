@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Remover banner/promo do Lovable */
+[data-lovable],
+[class*="lovable"],
+[class*="Lovable"],
+a[href*="lovable"],
+button[class*="lovable"],
+div[class*="lovable-banner"],
+div[class*="lovable-promo"],
+div[id*="lovable"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 217 19% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 217 19% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 217 19% 9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 205 87% 52%;
+    --primary-foreground: 217 19% 6%;
+
+    --secondary: 205 38% 30%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 19% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 205 87% 52%;
+    --accent-foreground: 217 19% 6%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 19% 18%;
+    --input: 217 19% 18%;
+    --ring: 205 87% 52%;
+
+    --radius: 0.75rem;
+
+    --steel-blue: 205 38% 30%;
+    --electric-blue: 205 87% 52%;
+    --dark-bg: 217 19% 6%;
+    --card-bg: 217 19% 9%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(205 87% 52% / 0.1), hsl(205 38% 30% / 0.05));
+    --gradient-card: linear-gradient(180deg, hsl(217 19% 11%), hsl(217 19% 9%));
+    
+    --shadow-glow: 0 0 40px hsl(205 87% 52% / 0.15);
+    --shadow-card: 0 4px 20px hsl(217 19% 3% / 0.5);
+    
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 217 19% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 205 87% 52%;
+    --sidebar-primary-foreground: 217 19% 6%;
+    --sidebar-accent: 217 19% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 19% 15%;
+    --sidebar-ring: 205 87% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+
+  /* Acessibilidade */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Skip to main content */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+  }
+
+  .skip-link:focus {
+    top: 0;
+  }
+
+  /* Focus visible */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
