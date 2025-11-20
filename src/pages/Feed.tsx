@@ -327,32 +327,6 @@ const Feed = () => {
     }
   };
 
-  const loadSharedTreinoReactions = async (sharedTreinoId: string) => {
-    if (!user) return;
-    try {
-      const reactions = await socialService.getReactions(sharedTreinoId);
-      setSharedTreinoReactions(prev => ({
-        ...prev,
-        [sharedTreinoId]: reactions,
-      }));
-    } catch (error) {
-      console.error("Erro ao carregar reações:", error);
-    }
-  };
-
-  const loadQuickWorkoutReactions = async (workoutId: string) => {
-    if (!user) return;
-    try {
-      const reactions = await groupService.getQuickWorkoutReactions(workoutId);
-      setQuickWorkoutReactions(prev => ({
-        ...prev,
-        [workoutId]: reactions,
-      }));
-    } catch (error) {
-      console.error("Erro ao carregar reações:", error);
-    }
-  };
-
   const getTreinoDetails = (treinoId: string) => {
     if (!user) return null;
     // Buscar treino original (se for do usuário) ou usar dados compartilhados
