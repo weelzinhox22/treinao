@@ -34,9 +34,10 @@ import GroupDialog from "./GroupDialog";
 interface GroupsManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultTab?: "my-groups" | "join";
 }
 
-const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
+const GroupsManager = ({ open, onOpenChange, defaultTab = "my-groups" }: GroupsManagerProps) => {
   console.log("🎨 GroupsManager v2.0 renderizado!", { open });
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,12 +48,14 @@ const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
   const [inviteCode, setInviteCode] = useState("");
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"my-groups" | "join">(defaultTab);
 
   useEffect(() => {
     if (open && user) {
       loadGroups();
+      setActiveTab(defaultTab);
     }
-  }, [open, user]);
+  }, [open, user, defaultTab]);
 
   useEffect(() => {
     if (!createGroupOpen && open && user) {
@@ -79,7 +82,7 @@ const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
 
     setJoiningGroup(true);
     try {
-      const group = await groupService.joinGroup(inviteCode.toUpperCase(), user.id, user.name);
+      const group = await groupService.joinGroupByCode(inviteCode.toUpperCase(), user.id, user.name);
       
       if (group) {
         toast({
@@ -156,7 +159,7 @@ const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
           </DialogHeader>
 
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] px-6 pb-6">
-            <Tabs defaultValue="my-groups" className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "my-groups" | "join")} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="my-groups" className="gap-2">
                   <Users className="h-4 w-4" />

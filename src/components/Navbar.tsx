@@ -57,113 +57,125 @@ const Navbar = () => {
           <div className="flex items-center gap-2 md:gap-4">
             {isAuthenticated ? (
               <>
-                {/* Desktop Navigation */}
-                <div className="hidden md:flex items-center gap-1">
-                  <Link to="/dashboard">
-                    <Button 
-                      variant={isActive("/dashboard") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/dashboard") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <Home className="h-4 w-4 mr-2" />
-                      Início
-                    </Button>
-                  </Link>
-                  <Link to="/treinos">
-                    <Button 
-                      variant={isActive("/treinos") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/treinos") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Treinos
-                    </Button>
-                  </Link>
+                {/* Desktop Navigation - Melhorado */}
+                <div className="hidden md:flex items-center gap-2">
+                  {/* Grupo Principal: Navegação */}
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted/30 border border-border/50">
+                    <Link to="/dashboard">
+                      <Button 
+                        variant={isActive("/dashboard") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/dashboard") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <Home className="h-4 w-4 mr-1.5" />
+                        Início
+                      </Button>
+                    </Link>
+                    <Link to="/treinos">
+                      <Button 
+                        variant={isActive("/treinos") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/treinos") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <Calendar className="h-4 w-4 mr-1.5" />
+                        Treinos
+                      </Button>
+                    </Link>
+                    <Link to="/feed">
+                      <Button 
+                        variant={isActive("/feed") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/feed") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <Users className="h-4 w-4 mr-1.5" />
+                        Feed
+                      </Button>
+                    </Link>
+                  </div>
+
+                  {/* Botão Destaque: Novo Treino */}
                   <Link to="/treinos/novo">
                     <Button 
                       size="sm"
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="h-9 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
+                      <Plus className="h-4 w-4 mr-1.5" />
                       Novo Treino
                     </Button>
                   </Link>
-                  <Link to="/metas">
-                    <Button 
-                      variant={isActive("/metas") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/metas") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <Target className="h-4 w-4 mr-2" />
-                      Metas
-                    </Button>
-                  </Link>
-                  <Link to="/peso">
-                    <Button 
-                      variant={isActive("/peso") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/peso") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <Scale className="h-4 w-4 mr-2" />
-                      Peso
-                    </Button>
-                  </Link>
-                  <Link to="/progressao">
-                    <Button 
-                      variant={isActive("/progressao") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/progressao") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <TrendingUp className="h-4 w-4 mr-2" />
-                      Progresso
-                    </Button>
-                  </Link>
-                  <Link to="/fotos">
-                    <Button 
-                      variant={isActive("/fotos") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/fotos") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <Camera className="h-4 w-4 mr-2" />
-                      Fotos
-                    </Button>
-                  </Link>
-                  <Link to="/badges">
-                    <Button 
-                      variant={isActive("/badges") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/badges") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <Trophy className="h-4 w-4 mr-2" />
-                      Conquistas
-                    </Button>
-                  </Link>
-                  <Link to="/feed">
-                    <Button 
-                      variant={isActive("/feed") ? "default" : "ghost"}
-                      size="sm"
-                      className={cn(
-                        isActive("/feed") && "bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Feed
-                    </Button>
-                  </Link>
+
+                  {/* Grupo Secundário: Ferramentas */}
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted/20">
+                    <Link to="/metas">
+                      <Button 
+                        variant={isActive("/metas") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/metas") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <Target className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link to="/peso">
+                      <Button 
+                        variant={isActive("/peso") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/peso") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <Scale className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link to="/progressao">
+                      <Button 
+                        variant={isActive("/progressao") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/progressao") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link to="/fotos">
+                      <Button 
+                        variant={isActive("/fotos") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/fotos") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link to="/badges">
+                      <Button 
+                        variant={isActive("/badges") ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "h-9",
+                          isActive("/badges") && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                      >
+                        <Trophy className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Notifications */}

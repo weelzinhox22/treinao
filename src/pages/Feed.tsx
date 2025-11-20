@@ -18,6 +18,7 @@ import {
   Users as UsersIcon,
   ChevronDown,
   ChevronUp,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { socialService, type SharedTreino, type TreinoComment } from "@/services/socialService";
@@ -64,6 +65,7 @@ const Feed = () => {
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [quickWorkoutDialogOpen, setQuickWorkoutDialogOpen] = useState(false);
   const [groupsManagerOpen, setGroupsManagerOpen] = useState(false);
+  const [groupsManagerDefaultTab, setGroupsManagerDefaultTab] = useState<"my-groups" | "join">("my-groups");
   const [activeTab, setActiveTab] = useState<"all" | "workouts" | "shared" | "following">("all");
   const [followingPosts, setFollowingPosts] = useState<GroupPost[]>([]);
   const [rankingDialogOpen, setRankingDialogOpen] = useState(false);
@@ -250,11 +252,26 @@ const Feed = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setGroupsManagerOpen(true)}
+              onClick={() => {
+                setGroupsManagerDefaultTab("my-groups");
+                setGroupsManagerOpen(true);
+              }}
               className="flex-1 md:flex-initial"
             >
               <UsersIcon className="h-4 w-4 mr-2" />
               {userGroups.length > 0 ? "Gerenciar" : "Criar Grupo"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setGroupsManagerDefaultTab("join");
+                setGroupsManagerOpen(true);
+              }}
+              className="flex-1 md:flex-initial"
+            >
+              <UsersIcon className="h-4 w-4 mr-2" />
+              Entrar em Grupo
             </Button>
             <Button
               size="sm"
@@ -367,9 +384,46 @@ const Feed = () => {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <Trophy className="h-4 w-4 text-primary" />
-                          <span className="font-bold text-primary text-sm">{workout.points}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-1.5">
+                            <Trophy className="h-4 w-4 text-primary" />
+                            <span className="font-bold text-primary text-sm">{workout.points}</span>
+                          </div>
+                          {workout.user_id === user?.id && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    if (confirm("Tem certeza que deseja excluir este treino?")) {
+                                      try {
+                                        await groupService.deleteQuickWorkout(workout.id, user.id);
+                                        loadFeed();
+                                        toast({
+                                          title: "Treino excluído",
+                                          description: "O treino foi removido do feed.",
+                                        });
+                                      } catch (error) {
+                                        toast({
+                                          title: "Erro",
+                                          description: "Não foi possível excluir o treino.",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  className="text-red-500"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                       </div>
                       
@@ -455,16 +509,52 @@ const Feed = () => {
                         </p>
                       </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Reportar</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {sharedTreino.userId === user?.id ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              if (confirm("Tem certeza que deseja excluir este post?")) {
+                                try {
+                                  await socialService.unshareTreino(sharedTreino.id, user.id);
+                                  loadFeed();
+                                  toast({
+                                    title: "Post excluído",
+                                    description: "O post foi removido do feed.",
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Erro",
+                                    description: "Não foi possível excluir o post.",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }
+                            }}
+                            className="text-red-500"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>Reportar</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
 
                   {/* Conteúdo do treino */}
@@ -752,16 +842,52 @@ const Feed = () => {
                             </p>
                           </div>
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Reportar</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {sharedTreino.userId === user?.id ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (confirm("Tem certeza que deseja excluir este post?")) {
+                                    try {
+                                      await socialService.unshareTreino(sharedTreino.id, user.id);
+                                      loadFeed();
+                                      toast({
+                                        title: "Post excluído",
+                                        description: "O post foi removido do feed.",
+                                      });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Erro",
+                                        description: "Não foi possível excluir o post.",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="text-red-500"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>Reportar</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
 
                       {/* Conteúdo do treino */}
@@ -971,6 +1097,7 @@ const Feed = () => {
         <GroupsManager
           open={groupsManagerOpen}
           onOpenChange={setGroupsManagerOpen}
+          defaultTab={groupsManagerDefaultTab}
         />
 
         {selectedGroupForRanking && (

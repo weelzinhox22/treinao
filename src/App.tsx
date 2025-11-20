@@ -26,19 +26,21 @@ import UserProfile from "./pages/UserProfile";
 import Onboarding from "./components/Onboarding";
 import OfflineIndicator from "./components/OfflineIndicator";
 import NotFound from "./pages/NotFound";
+import { useMobileNotification } from "./hooks/useMobileNotification";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <a href="#main-content" className="skip-link">
-          Pular para conteúdo principal
-        </a>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+const AppContent = () => {
+  useMobileNotification();
+  
+  return (
+    <TooltipProvider>
+      <a href="#main-content" className="skip-link">
+        Pular para conteúdo principal
+      </a>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
           <Routes>
             <Route 
               path="/" 
@@ -211,6 +213,13 @@ const App = () => (
           <OfflineIndicator />
         </BrowserRouter>
       </TooltipProvider>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
   </QueryClientProvider>
 );

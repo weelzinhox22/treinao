@@ -89,14 +89,11 @@ const InstallPWAButton = () => {
     );
   }
 
-  if (!deferredPrompt) {
-    return null; // Não mostrar se não há prompt disponível
-  }
-
+  // Sempre mostrar o botão, mesmo sem prompt (para iOS e outros casos)
   return (
-    <Button onClick={handleInstall} className="gap-2">
+    <Button onClick={handleInstall} className="gap-2" variant="default">
       <Download className="h-4 w-4" />
-      Instalar App
+      Instalar
     </Button>
   );
 };

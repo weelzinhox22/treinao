@@ -676,6 +676,30 @@ export const groupService = {
     return workout;
   },
 
+  deleteQuickWorkout: async (workoutId: string, userId: string): Promise<boolean> => {
+    if (supabaseService.isConfigured() && supabase) {
+      try {
+        const { error } = await supabase
+          .from("quick_workouts")
+          .delete()
+          .eq("id", workoutId)
+          .eq("user_id", userId); // Segurança: garantir que é do usuário
+
+        if (error) throw error;
+        return true;
+      } catch (error) {
+        console.error("Erro ao deletar treino rápido:", error);
+        throw error;
+      }
+    }
+
+    // Fallback: remover do localStorage
+    const workouts = getFromStorage<QuickWorkout>(QUICK_WORKOUTS_KEY);
+    const filtered = workouts.filter((w) => w.id !== workoutId || w.user_id !== userId);
+    saveToStorage(QUICK_WORKOUTS_KEY, filtered);
+    return true;
+  },
+
   updateChallengePoints: async (
     challengeId: string,
     userId: string,

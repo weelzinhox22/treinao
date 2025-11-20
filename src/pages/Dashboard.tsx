@@ -27,7 +27,8 @@ import { StatsCardSkeleton } from "@/components/Skeleton";
 import UploadAvatarDialog from "@/components/UploadAvatarDialog";
 import AdminNotificationPanel from "@/components/AdminNotificationPanel";
 import { Badge } from "@/components/ui/badge";
-import { Camera } from "lucide-react";
+import { Camera, Download, Smartphone } from "lucide-react";
+import InstallPWAButton from "@/components/InstallPWAButton";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -203,22 +204,25 @@ const Dashboard = () => {
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-1">Olá, {user?.name?.split(' ')[0] || 'Atleta'}!</h1>
             <p className="text-muted-foreground text-sm">
               Veja seu progresso hoje
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAvatarDialogOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <Camera className="h-4 w-4" />
-            <span className="hidden md:inline">Foto</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <InstallPWAButton />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAvatarDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              <span className="hidden md:inline">Foto</span>
+            </Button>
+          </div>
         </div>
 
         {/* Stats Grid */}

@@ -352,7 +352,26 @@ export const socialService = {
   },
 
   // Remover compartilhamento
-  unshareTreino: (sharedTreinoId: string, userId: string): boolean => {
+  unshareTreino: async (sharedTreinoId: string, userId: string): Promise<boolean> => {
+    // Deletar do Supabase
+    if (supabaseService.isConfigured() && supabase) {
+      try {
+        const { error } = await supabase
+          .from("shared_treinos")
+          .delete()
+          .eq("id", sharedTreinoId)
+          .eq("user_id", userId); // Segurança: garantir que é do usuário
+
+        if (error) {
+          console.error("Erro ao deletar do Supabase:", error);
+          // Continuar com fallback
+        }
+      } catch (error) {
+        console.error("Erro ao deletar do Supabase:", error);
+      }
+    }
+
+    // Fallback: remover do localStorage
     const allShared = getSharedTreinosFromStorage();
     const index = allShared.findIndex((s) => s.id === sharedTreinoId && s.userId === userId);
     
