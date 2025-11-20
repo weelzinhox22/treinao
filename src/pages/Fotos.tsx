@@ -54,21 +54,28 @@ const Fotos = () => {
   const loadFotos = async () => {
     if (!user) return;
     
+    console.log("📸 Carregando fotos do usuário:", user.id);
+    
     // Buscar do Supabase se configurado
     if (supabaseService.isConfigured()) {
       try {
+        console.log("🔄 Buscando fotos do Supabase...");
         const fotosSupabase = await supabaseService.getData<Foto>("fotos", user.id);
+        console.log("✅ Fotos do Supabase:", fotosSupabase.length, fotosSupabase);
+        
         // Atualizar localStorage local com dados do Supabase
         if (fotosSupabase.length > 0) {
           localStorage.setItem(`supabase_fotos_${user.id}`, JSON.stringify(fotosSupabase));
+          console.log("💾 Fotos salvas no cache localStorage");
         }
       } catch (error) {
-        console.error("Erro ao buscar fotos do Supabase:", error);
+        console.error("❌ Erro ao buscar fotos do Supabase:", error);
       }
     }
     
     // Buscar de ambas as fontes (local + Supabase sync)
     const userFotos = fotoService.getFotos(user.id);
+    console.log("📊 Total de fotos encontradas:", userFotos.length, userFotos);
     setFotos(userFotos);
     setLoading(false);
   };
@@ -121,7 +128,7 @@ const Fotos = () => {
         } catch (error: any) {
           console.error("Erro ao fazer upload para Supabase:", error);
           // Fallback para base64 se o upload falhar
-          toast({
+      toast({
             title: "Usando armazenamento local",
             description: "Foto salva localmente (Supabase indisponível).",
             variant: "default",
@@ -138,19 +145,25 @@ const Fotos = () => {
       // Salvar no Supabase (sincronizar)
       if (supabaseService.isConfigured()) {
         try {
-          await supabaseService.saveData("fotos", user.id, {
+          console.log("🔄 Salvando foto no Supabase...", newFoto);
+          const result = await supabaseService.saveData("fotos", user.id, {
             id: newFoto.id,
             user_id: user.id,
-            userId: user.id,
             url: newFoto.url,
             date: newFoto.date,
             description: newFoto.description,
           });
+          console.log("✅ Foto salva no Supabase:", result);
         } catch (error) {
-          console.error("Erro ao sincronizar foto com Supabase:", error);
+          console.error("❌ Erro ao sincronizar foto com Supabase:", error);
+          toast({
+            title: "Aviso",
+            description: "Foto salva localmente. Verifique se a tabela 'fotos' existe no Supabase.",
+            variant: "default",
+          });
         }
       }
-      
+
       setUploadDialogOpen(false);
       setSelectedFile(null);
       setPreview(null);
@@ -340,7 +353,9 @@ const Fotos = () => {
                 </div>
                 <div className="p-4">
                   <p className="text-sm text-muted-foreground mb-1">
-                    {new Date(foto.date).toLocaleDateString("pt-BR")}
+                    {new Date(foto.date).toLocaleDateString("pt-BR", {
+                      timeZone: "America/Sao_Paulo"
+                    })}
                   </p>
                   {foto.description && (
                     <p className="text-sm">{foto.description}</p>

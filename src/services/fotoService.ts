@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 export interface Foto {
   id: string;
   userId: string;
@@ -58,7 +60,7 @@ export const fotoService = {
   addFoto: (userId: string, url: string, description?: string): Foto => {
     const fotos = getFotosFromStorage();
     const newFoto: Foto = {
-      id: Date.now().toString(),
+      id: uuidv4(), // Gerar UUID ao invés de timestamp
       userId,
       url,
       date: new Date().toISOString(),

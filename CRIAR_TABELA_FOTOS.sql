@@ -24,12 +24,14 @@ CREATE INDEX IF NOT EXISTS idx_fotos_date ON fotos(date DESC);
 -- =====================================================
 ALTER TABLE fotos ENABLE ROW LEVEL SECURITY;
 
--- 3. REMOVER POLÍTICAS ANTIGAS (SE EXISTIREM)
+-- 3. REMOVER POLÍTICAS ANTIGAS (SE EXISTIREM) - FAZER ANTES!
 -- =====================================================
-DROP POLICY IF EXISTS "Users can view own fotos" ON fotos;
-DROP POLICY IF EXISTS "Users can insert own fotos" ON fotos;
-DROP POLICY IF EXISTS "Users can update own fotos" ON fotos;
-DROP POLICY IF EXISTS "Users can delete own fotos" ON fotos;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Users can view own fotos" ON fotos;
+  DROP POLICY IF EXISTS "Users can insert own fotos" ON fotos;
+  DROP POLICY IF EXISTS "Users can update own fotos" ON fotos;
+  DROP POLICY IF EXISTS "Users can delete own fotos" ON fotos;
+END $$;
 
 -- 4. CRIAR POLÍTICAS RLS
 -- =====================================================

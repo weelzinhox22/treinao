@@ -32,14 +32,23 @@ self.addEventListener('activate', (event) => {
 
 // Interceptar requisições (estratégia: Network First, Cache Fallback)
 self.addEventListener('fetch', (event) => {
+  // Ignorar requisições que não podem ser cacheadas
+  if (event.request.method !== 'GET' || 
+      event.request.url.startsWith('chrome-extension://') ||
+      event.request.url.includes('chrome-extension')) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Clonar resposta para cache
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        // Apenas cachear respostas bem-sucedidas
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
         return response;
       })
       .catch(() => {
