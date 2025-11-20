@@ -4,6 +4,7 @@ export interface Foto {
   url: string;
   date: string;
   description?: string;
+  user_id?: string; // Para compatibilidade com Supabase
 }
 
 const STORAGE_KEY = "fotos";
@@ -28,9 +29,29 @@ const saveFotosToStorage = (fotos: Foto[]): void => {
 
 export const fotoService = {
   getFotos: (userId: string): Foto[] => {
-    const fotos = getFotosFromStorage();
-    return fotos
-      .filter((f) => f.userId === userId)
+    // Buscar de AMBAS as fontes (localStorage local e Supabase sync)
+    const fotosLocal = getFotosFromStorage();
+    
+    // Buscar fotos sincronizadas do Supabase
+    let fotosSupabase: Foto[] = [];
+    try {
+      const supabaseKey = `supabase_fotos_${userId}`;
+      const stored = localStorage.getItem(supabaseKey);
+      if (stored) {
+        fotosSupabase = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar fotos do Supabase:", error);
+    }
+    
+    // Combinar e remover duplicatas (priorizar Supabase)
+    const allFotos = [...fotosSupabase, ...fotosLocal];
+    const uniqueFotos = allFotos.filter((foto, index, self) => 
+      index === self.findIndex((f) => f.id === foto.id)
+    );
+    
+    return uniqueFotos
+      .filter((f) => f.userId === userId || f.user_id === userId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
 

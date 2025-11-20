@@ -51,8 +51,23 @@ const Fotos = () => {
     }
   }, [user]);
 
-  const loadFotos = () => {
+  const loadFotos = async () => {
     if (!user) return;
+    
+    // Buscar do Supabase se configurado
+    if (supabaseService.isConfigured()) {
+      try {
+        const fotosSupabase = await supabaseService.getData<Foto>("fotos", user.id);
+        // Atualizar localStorage local com dados do Supabase
+        if (fotosSupabase.length > 0) {
+          localStorage.setItem(`supabase_fotos_${user.id}`, JSON.stringify(fotosSupabase));
+        }
+      } catch (error) {
+        console.error("Erro ao buscar fotos do Supabase:", error);
+      }
+    }
+    
+    // Buscar de ambas as fontes (local + Supabase sync)
     const userFotos = fotoService.getFotos(user.id);
     setFotos(userFotos);
     setLoading(false);
@@ -118,7 +133,23 @@ const Fotos = () => {
         photoUrl = await fotoService.fileToBase64(selectedFile);
       }
       
-      fotoService.addFoto(user.id, photoUrl, description || undefined);
+      const newFoto = fotoService.addFoto(user.id, photoUrl, description || undefined);
+      
+      // Salvar no Supabase (sincronizar)
+      if (supabaseService.isConfigured()) {
+        try {
+          await supabaseService.saveData("fotos", user.id, {
+            id: newFoto.id,
+            user_id: user.id,
+            userId: user.id,
+            url: newFoto.url,
+            date: newFoto.date,
+            description: newFoto.description,
+          });
+        } catch (error) {
+          console.error("Erro ao sincronizar foto com Supabase:", error);
+        }
+      }
       
       setUploadDialogOpen(false);
       setSelectedFile(null);
