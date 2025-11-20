@@ -8,16 +8,22 @@ interface ProfileAvatarProps {
   userName: string;
   size?: "sm" | "md" | "lg";
   className?: string;
+  avatarUrl?: string;
 }
 
-const ProfileAvatar = ({ userId, userName, size = "md", className }: ProfileAvatarProps) => {
+const ProfileAvatar = ({ userId, userName, size = "md", className, avatarUrl: propAvatarUrl }: ProfileAvatarProps) => {
   const { user } = useAuth();
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(propAvatarUrl || null);
+  const [loading, setLoading] = useState(!propAvatarUrl);
 
   useEffect(() => {
-    loadAvatar();
-  }, [userId]);
+    if (propAvatarUrl) {
+      setAvatarUrl(propAvatarUrl);
+      setLoading(false);
+    } else {
+      loadAvatar();
+    }
+  }, [userId, propAvatarUrl]);
 
   const loadAvatar = async () => {
     try {

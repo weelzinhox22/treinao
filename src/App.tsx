@@ -20,6 +20,7 @@ import Badges from "./pages/Badges";
 import Feed from "./pages/Feed";
 import Perfil from "./pages/Perfil";
 import GroupFeed from "./pages/GroupFeed";
+import UserProfile from "./pages/UserProfile";
 import Onboarding from "./components/Onboarding";
 import OfflineIndicator from "./components/OfflineIndicator";
 import NotFound from "./pages/NotFound";
@@ -156,6 +157,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <GroupFeed />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/perfil/:userId"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <UserProfile />
                   </Layout>
                 </ProtectedRoute>
               }

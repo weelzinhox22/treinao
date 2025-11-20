@@ -1,5 +1,6 @@
 // Service Worker para PWA e modo offline
-const CACHE_NAME = 'strong-wel-v1';
+// VERSION: v2.1 - Corrigido para ignorar HEAD e chrome-extension
+const CACHE_NAME = 'strong-wel-v2.1';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -33,20 +34,40 @@ self.addEventListener('activate', (event) => {
 // Interceptar requisições (estratégia: Network First, Cache Fallback)
 self.addEventListener('fetch', (event) => {
   // Ignorar requisições que não podem ser cacheadas
-  if (event.request.method !== 'GET' || 
-      event.request.url.startsWith('chrome-extension://') ||
-      event.request.url.includes('chrome-extension')) {
+  const request = event.request;
+  const url = new URL(request.url);
+  
+  // Ignorar métodos não-GET
+  if (request.method !== 'GET') {
+    return;
+  }
+  
+  // Ignorar chrome-extension, chrome://, etc
+  if (url.protocol === 'chrome-extension:' || 
+      url.protocol === 'chrome:' ||
+      url.hostname === 'chrome-extension' ||
+      request.url.includes('chrome-extension://')) {
+    return;
+  }
+  
+  // Ignorar requisições HEAD
+  if (request.method === 'HEAD') {
     return;
   }
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Apenas cachear respostas bem-sucedidas
-        if (response && response.status === 200 && response.type === 'basic') {
+        // Apenas cachear respostas bem-sucedidas e do tipo basic
+        if (response && 
+            response.status === 200 && 
+            response.type === 'basic' &&
+            request.method === 'GET') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put(event.request, responseToCache).catch(() => {
+              // Ignorar erros de cache (ex: quota exceeded)
+            });
           });
         }
         return response;

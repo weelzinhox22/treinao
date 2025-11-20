@@ -13,6 +13,7 @@ export interface Treino {
   date: string;
   exercises: Exercise[];
   totalVolume: number;
+  notes?: string; // Notas e observações do treino
 }
 
 const STORAGE_KEY = "treinos";

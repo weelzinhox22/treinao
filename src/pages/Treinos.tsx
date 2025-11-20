@@ -279,6 +279,11 @@ const Treinos = () => {
                         {formatVolume(treino.totalVolume)}
                       </span>
                     </div>
+                    {treino.notes && (
+                      <p className="text-xs text-muted-foreground italic mb-2 line-clamp-2">
+                        📝 {treino.notes}
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <Button 
                         variant="ghost" 

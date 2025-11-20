@@ -126,6 +126,8 @@ export interface QuickWorkout {
   duration_minutes_detailed?: number;
   duration_seconds?: number;
   photo_url?: string;
+  title?: string; // Título do treino
+  description?: string; // Descrição/legenda do treino
 }
 
 const GROUPS_KEY = "groups";
@@ -602,7 +604,9 @@ export const groupService = {
     startTime?: string,
     durationHours?: number,
     durationMinutesDetailed?: number,
-    durationSeconds?: number
+    durationSeconds?: number,
+    title?: string,
+    description?: string
   ): Promise<QuickWorkout> => {
     const workout: QuickWorkout = {
       id: Date.now().toString(),
@@ -620,6 +624,8 @@ export const groupService = {
       duration_hours: durationHours,
       duration_minutes_detailed: durationMinutesDetailed,
       duration_seconds: durationSeconds,
+      title: title || undefined,
+      description: description || undefined,
     };
 
     if (supabaseService.isConfigured() && supabase) {
@@ -637,6 +643,8 @@ export const groupService = {
           photo_url: workout.photo_url,
           created_at: workout.created_at,
           start_time: workout.start_time || null,
+          title: workout.title || null,
+          description: workout.description || null,
           duration_hours: workout.duration_hours || 0,
           duration_minutes_detailed: workout.duration_minutes_detailed || 0,
           duration_seconds: workout.duration_seconds || 0,

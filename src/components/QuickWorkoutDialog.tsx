@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -57,6 +58,8 @@ const QuickWorkoutDialog = ({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [title, setTitle] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
 
   useEffect(() => {
     if (open && user) {
@@ -162,7 +165,9 @@ const QuickWorkoutDialog = ({
         startTime || undefined,
         parseInt(durationHours) || 0,
         parseInt(durationMinutes) || 0,
-        parseInt(durationSeconds) || 0
+        parseInt(durationSeconds) || 0,
+        title.trim() || undefined,
+        description.trim() || undefined
       );
 
       toast({
@@ -183,6 +188,8 @@ const QuickWorkoutDialog = ({
       setSelectedChallenges([]);
       setPhotoFile(null);
       setPhotoPreview(null);
+      setTitle("");
+      setDescription("");
     } catch (error: any) {
       toast({
         title: "Erro",
@@ -215,6 +222,37 @@ const QuickWorkoutDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Título */}
+          <div>
+            <Label htmlFor="title">Título do Treino (opcional)</Label>
+            <Input
+              id="title"
+              placeholder="Ex: Treino Matinal de Peito"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="mt-2"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Dê um nome para seu treino
+            </p>
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <Label htmlFor="description">Descrição (opcional)</Label>
+            <Textarea
+              id="description"
+              placeholder="Como foi seu treino? Compartilhe detalhes, dicas ou motivação..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="mt-2"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Adicione uma legenda, código de grupo, ou qualquer mensagem
+            </p>
+          </div>
+
           {/* Data */}
           <div>
             <Label>Data do Treino</Label>

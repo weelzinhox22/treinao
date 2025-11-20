@@ -1,54 +1,60 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
-  Trophy,
-  Calendar,
-  TrendingUp,
-  Target,
-  Camera,
   Edit2,
   Save,
   X,
   Camera as CameraIcon,
-  User,
   Mail,
+  Calendar,
+  Grid3x3,
+  Users,
+  UserPlus,
+  Trophy,
   Award,
-  Activity,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService } from "@/services/profileService";
-import { gamificationService } from "@/services/gamificationService";
-import { treinoService } from "@/services/treinoService";
-import { metasService } from "@/services/metasService";
-import { fotoService } from "@/services/fotoService";
+import { followService, type UserProfileStats } from "@/services/followService";
+import { groupPostsService, type GroupPost } from "@/services/groupPostsService";
 import { useToast } from "@/hooks/use-toast";
 import UploadAvatarDialog from "@/components/UploadAvatarDialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ProfileAvatar from "@/components/ProfileAvatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { supabase } from "@/config/supabase";
+import { gamificationService } from "@/services/gamificationService";
 import type { Badge as BadgeType } from "@/services/gamificationService";
+import { Image as ImageIcon } from "lucide-react";
 
 const Perfil = () => {
   const { user, updateUser } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || "");
   const [saving, setSaving] = useState(false);
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [profileStats, setProfileStats] = useState<UserProfileStats | null>(null);
+  const [posts, setPosts] = useState<GroupPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showFollowersDialog, setShowFollowersDialog] = useState(false);
+  const [showFollowingDialog, setShowFollowingDialog] = useState(false);
+  const [showBadgesDialog, setShowBadgesDialog] = useState(false);
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [followingList, setFollowingList] = useState<any[]>([]);
   const [badges, setBadges] = useState<BadgeType[]>([]);
   const [unlockedBadges, setUnlockedBadges] = useState<BadgeType[]>([]);
-  const [stats, setStats] = useState({
-    totalTreinos: 0,
-    totalVolume: 0,
-    streak: 0,
-    totalMetas: 0,
-    metasAlcancadas: 0,
-    totalFotos: 0,
-  });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -60,28 +66,26 @@ const Perfil = () => {
   const loadProfileData = async () => {
     if (!user) return;
 
+    setLoading(true);
     try {
-      // Carregar badges
-      const allBadges = gamificationService.getAllBadges();
-      const unlocked = gamificationService.getUnlockedBadges(user.id);
+      const [stats, userPosts, allBadges, unlocked] = await Promise.all([
+        followService.getProfileStats(user.id),
+        groupPostsService.getUserPosts(user.id),
+        Promise.resolve(gamificationService.getAllBadges()),
+        Promise.resolve(gamificationService.getUnlockedBadges(user.id)),
+      ]);
+
+      setProfileStats(stats);
+      setPosts(userPosts || []);
       setBadges(allBadges);
       setUnlockedBadges(unlocked);
-
-      // Carregar estatísticas
-      const userStats = treinoService.getStats(user.id);
-      const metas = metasService.getMetas(user.id);
-      const fotos = fotoService.getFotos(user.id);
-
-      setStats({
-        totalTreinos: userStats.totalTreinos,
-        totalVolume: userStats.totalVolume,
-        streak: userStats.streak,
-        totalMetas: metas.length,
-        metasAlcancadas: metas.filter((m) => m.achieved).length,
-        totalFotos: fotos.length,
-      });
     } catch (error) {
       console.error("Erro ao carregar dados do perfil:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar o perfil.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -92,10 +96,7 @@ const Perfil = () => {
 
     setSaving(true);
     try {
-      // Atualizar no Supabase
       await profileService.updateProfile(user.id, { name: editedName.trim() });
-
-      // Atualizar no contexto
       const updatedUser = { ...user, name: editedName.trim() };
       updateUser(updatedUser);
 
@@ -105,6 +106,9 @@ const Perfil = () => {
       });
 
       setIsEditing(false);
+      // Recarregar stats
+      const stats = await followService.getProfileStats(user.id);
+      setProfileStats(stats);
     } catch (error) {
       toast({
         title: "Erro",
@@ -116,10 +120,113 @@ const Perfil = () => {
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditedName(user?.name || "");
-    setIsEditing(false);
+  const loadFollowers = async () => {
+    if (!user || !supabase) return;
+    
+    try {
+      const { data: follows, error } = await supabase
+        .from('user_follows')
+        .select('follower_id, created_at')
+        .eq('following_id', user.id.toString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const followerIds = follows?.map(f => f.follower_id) || [];
+      if (followerIds.length === 0) {
+        setFollowers([]);
+        return;
+      }
+
+      const followersPromises = followerIds.map(async (id) => {
+        try {
+          const { data: stats } = await supabase
+            .from('user_profile_stats')
+            .select('user_id, user_name, avatar_url')
+            .eq('user_id', id.toString())
+            .maybeSingle();
+
+          return {
+            id: id,
+            name: stats?.user_name || 'Usuário',
+            avatar_url: stats?.avatar_url,
+          };
+        } catch {
+          return {
+            id: id,
+            name: 'Usuário',
+            avatar_url: undefined,
+          };
+        }
+      });
+
+      const followersData = await Promise.all(followersPromises);
+      setFollowers(followersData);
+    } catch (error) {
+      console.error("Erro ao carregar seguidores:", error);
+      setFollowers([]);
+    }
   };
+
+  const loadFollowing = async () => {
+    if (!user || !supabase) return;
+    
+    try {
+      const { data: follows, error } = await supabase
+        .from('user_follows')
+        .select('following_id, created_at')
+        .eq('follower_id', user.id.toString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const followingIds = follows?.map(f => f.following_id) || [];
+      if (followingIds.length === 0) {
+        setFollowingList([]);
+        return;
+      }
+
+      const followingPromises = followingIds.map(async (id) => {
+        try {
+          const { data: stats } = await supabase
+            .from('user_profile_stats')
+            .select('user_id, user_name, avatar_url')
+            .eq('user_id', id.toString())
+            .maybeSingle();
+
+          return {
+            id: id,
+            name: stats?.user_name || 'Usuário',
+            avatar_url: stats?.avatar_url,
+          };
+        } catch {
+          return {
+            id: id,
+            name: 'Usuário',
+            avatar_url: undefined,
+          };
+        }
+      });
+
+      const followingData = await Promise.all(followingPromises);
+      setFollowingList(followingData);
+    } catch (error) {
+      console.error("Erro ao carregar seguindo:", error);
+      setFollowingList([]);
+    }
+  };
+
+  useEffect(() => {
+    if (showFollowersDialog) {
+      loadFollowers();
+    }
+  }, [showFollowersDialog, user]);
+
+  useEffect(() => {
+    if (showFollowingDialog) {
+      loadFollowing();
+    }
+  }, [showFollowingDialog, user]);
 
   const getInitials = (name: string) => {
     return name
@@ -130,19 +237,26 @@ const Perfil = () => {
       .slice(0, 2);
   };
 
-  const formatVolume = (kg: number) => {
-    if (kg >= 1000) {
-      return `${(kg / 1000).toFixed(1)}t`;
-    }
-    return `${Math.round(kg)}kg`;
-  };
-
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] p-4 pb-20 md:pb-8 md:p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando perfil...</p>
+      <div className="min-h-[calc(100vh-4rem)] p-4 pb-20 md:pb-8 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+            <p className="text-muted-foreground text-sm">Carregando perfil...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profileStats) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] p-4 pb-20 md:pb-8 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">Carregando perfil...</p>
+          </Card>
         </div>
       </div>
     );
@@ -151,16 +265,14 @@ const Perfil = () => {
   return (
     <div className="min-h-[calc(100vh-4rem)] p-4 pb-20 md:pb-8 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header do Perfil */}
-        <Card className="p-6 md:p-8 gradient-card border-border/50 shadow-card">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+        {/* Profile Header - Estilo Instagram */}
+        <Card className="p-6 gradient-card border-border/50">
+          <div className="flex flex-col md:flex-row gap-6">
             {/* Avatar */}
-            <div className="relative">
+            <div className="flex-shrink-0 relative">
               <Avatar className="h-24 w-24 md:h-32 md:w-32 border-4 border-primary/20">
-                {user?.avatar_url && (
-                  <AvatarImage src={user.avatar_url} alt={user.name} />
-                )}
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl md:text-3xl">
+                <AvatarImage src={user?.avatar_url} />
+                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                   {getInitials(user?.name || "U")}
                 </AvatarFallback>
               </Avatar>
@@ -173,228 +285,281 @@ const Perfil = () => {
               </Button>
             </div>
 
-            {/* Informações */}
-            <div className="flex-1 text-center md:text-left w-full">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Nome</Label>
-                    <Input
-                      id="name"
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
-                      className="mt-1"
-                      maxLength={50}
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-center md:justify-start">
-                    <Button
-                      size="sm"
-                      onClick={handleSaveName}
-                      disabled={saving || !editedName.trim()}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {saving ? "Salvando..." : "Salvar"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCancelEdit}
-                      disabled={saving}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center md:justify-start gap-2">
-                    <h1 className="text-2xl md:text-3xl font-bold">{user?.name}</h1>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
+            {/* Info */}
+            <div className="flex-1 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  {isEditing ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        className="max-w-xs"
+                        maxLength={50}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveName}
+                        disabled={saving || !editedName.trim()}
+                      >
+                        <Save className="h-4 w-4 mr-1" />
+                        {saving ? "Salvando..." : "Salvar"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditedName(user?.name || "");
+                          setIsEditing(false);
+                        }}
+                        disabled={saving}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-2xl font-bold">{user?.name}</h2>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1">
                     <Mail className="h-4 w-4" />
-                    <span className="text-sm">{user?.email}</span>
+                    <span>{user?.email}</span>
                   </div>
-                  <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
                     <Calendar className="h-4 w-4" />
-                    <span className="text-sm">
+                    <span>
                       Membro desde {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
                     </span>
                   </div>
                 </div>
-              )}
+                <Button
+                  onClick={() => setShowBadgesDialog(true)}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Trophy className="h-4 w-4" />
+                  Conquistas ({unlockedBadges.length})
+                </Button>
+              </div>
+
+              {/* Stats - Estilo Instagram */}
+              <div className="flex gap-6">
+                <div className="text-center">
+                  <p className="text-xl font-bold">{profileStats.posts_count}</p>
+                  <p className="text-xs text-muted-foreground">Posts</p>
+                </div>
+                <button
+                  onClick={() => setShowFollowersDialog(true)}
+                  className="text-center hover:opacity-80 transition-opacity cursor-pointer"
+                >
+                  <p className="text-xl font-bold">{profileStats.followers_count}</p>
+                  <p className="text-xs text-muted-foreground">Seguidores</p>
+                </button>
+                <button
+                  onClick={() => setShowFollowingDialog(true)}
+                  className="text-center hover:opacity-80 transition-opacity cursor-pointer"
+                >
+                  <p className="text-xl font-bold">{profileStats.following_count}</p>
+                  <p className="text-xs text-muted-foreground">Seguindo</p>
+                </button>
+                <div className="text-center">
+                  <p className="text-xl font-bold">{profileStats.total_points}</p>
+                  <p className="text-xs text-muted-foreground">Pontos</p>
+                </div>
+              </div>
             </div>
           </div>
         </Card>
 
-        {/* Estatísticas */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <Card className="p-4 gradient-card border-border/50 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Activity className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Treinos</p>
-                <p className="text-xl font-bold">{stats.totalTreinos}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 gradient-card border-border/50 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <TrendingUp className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Volume Total</p>
-                <p className="text-xl font-bold">{formatVolume(stats.totalVolume * 1000)}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 gradient-card border-border/50 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Trophy className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Sequência</p>
-                <p className="text-xl font-bold">{stats.streak} dias</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 gradient-card border-border/50 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Target className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Metas</p>
-                <p className="text-xl font-bold">
-                  {stats.metasAlcancadas}/{stats.totalMetas}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 gradient-card border-border/50 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Award className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Conquistas</p>
-                <p className="text-xl font-bold">{unlockedBadges.length}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 gradient-card border-border/50 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Camera className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Fotos</p>
-                <p className="text-xl font-bold">{stats.totalFotos}</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Tabs */}
-        <Tabs defaultValue="badges" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="badges">Conquistas</TabsTrigger>
-            <TabsTrigger value="stats">Estatísticas</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="badges" className="space-y-4">
-            <Card className="p-6 gradient-card border-border/50 shadow-card">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-bold mb-1">Suas Conquistas</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {unlockedBadges.length} de {badges.length} desbloqueadas
-                  </p>
-                </div>
-                <Badge variant="secondary" className="text-lg px-4 py-2">
-                  {Math.round((unlockedBadges.length / badges.length) * 100)}%
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {badges.map((badge) => {
-                  const isUnlocked = unlockedBadges.some((b) => b.id === badge.id);
-                  return (
-                    <div
-                      key={badge.id}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        isUnlocked
-                          ? "border-primary bg-primary/5 shadow-glow"
-                          : "border-border/50 bg-background/50 opacity-50"
-                      }`}
-                    >
-                      <div className="text-4xl mb-2 text-center">{badge.emoji}</div>
-                      <p className="text-xs font-semibold text-center mb-1">{badge.name}</p>
-                      {isUnlocked && (
-                        <Badge variant="default" className="w-full justify-center text-xs">
-                          Desbloqueada
-                        </Badge>
-                      )}
+        {/* Posts Grid - Estilo Instagram */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Grid3x3 className="h-5 w-5" />
+            <h3 className="text-lg font-semibold">Posts</h3>
+          </div>
+          
+          {posts.length === 0 ? (
+            <Card className="p-8 text-center">
+              <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum post ainda</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                Comece a compartilhar seus treinos!
+              </p>
+              <Button onClick={() => navigate("/feed")} variant="outline">
+                Ver Feed
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {posts.map((post) => (
+                <Card
+                  key={post.id}
+                  className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => {
+                    if (post.group_id) {
+                      navigate(`/grupo/${post.group_id}`);
+                    }
+                  }}
+                >
+                  {post.photo_url ? (
+                    <div className="aspect-square relative overflow-hidden bg-muted">
+                      <img
+                        src={post.photo_url}
+                        alt={post.title || "Post"}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 hover:opacity-100 transition-opacity text-white text-center p-4">
+                          <p className="font-semibold">{post.title}</p>
+                          {post.points && (
+                            <p className="text-sm mt-1">{post.points} pts</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="stats" className="space-y-4">
-            <Card className="p-6 gradient-card border-border/50 shadow-card">
-              <h2 className="text-xl font-bold mb-4">Estatísticas Detalhadas</h2>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
-                  <span className="text-muted-foreground">Total de Treinos</span>
-                  <span className="font-bold text-lg">{stats.totalTreinos}</span>
-                </div>
-                <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
-                  <span className="text-muted-foreground">Volume Total</span>
-                  <span className="font-bold text-lg">{formatVolume(stats.totalVolume * 1000)}</span>
-                </div>
-                <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
-                  <span className="text-muted-foreground">Sequência Atual</span>
-                  <span className="font-bold text-lg">{stats.streak} dias</span>
-                </div>
-                <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
-                  <span className="text-muted-foreground">Metas Alcançadas</span>
-                  <span className="font-bold text-lg">
-                    {stats.metasAlcancadas} de {stats.totalMetas}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
-                  <span className="text-muted-foreground">Conquistas Desbloqueadas</span>
-                  <span className="font-bold text-lg">{unlockedBadges.length}</span>
-                </div>
-                <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
-                  <span className="text-muted-foreground">Fotos de Progresso</span>
-                  <span className="font-bold text-lg">{stats.totalFotos}</span>
-                </div>
-              </div>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  ) : (
+                    <div className="aspect-square flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                      <div className="text-center p-4">
+                        <p className="text-4xl mb-2">{post.mood_emoji || "💪"}</p>
+                        <p className="font-semibold">{post.title}</p>
+                        {post.points && (
+                          <p className="text-sm text-muted-foreground mt-1">{post.points} pts</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Dialog: Seguidores */}
+      <Dialog open={showFollowersDialog} onOpenChange={setShowFollowersDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Seguidores</DialogTitle>
+            <DialogDescription>
+              {followers.length} {followers.length === 1 ? 'seguidor' : 'seguidores'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto space-y-2">
+            {followers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhum seguidor ainda</p>
+              </div>
+            ) : (
+              followers.map((follower) => (
+                <button
+                  key={follower.id}
+                  onClick={() => {
+                    navigate(`/perfil/${follower.id}`);
+                    setShowFollowersDialog(false);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left"
+                >
+                  <ProfileAvatar
+                    userId={follower.id}
+                    userName={follower.name}
+                    avatarUrl={follower.avatar_url}
+                    size="md"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{follower.name}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Seguindo */}
+      <Dialog open={showFollowingDialog} onOpenChange={setShowFollowingDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Seguindo</DialogTitle>
+            <DialogDescription>
+              {followingList.length} {followingList.length === 1 ? 'pessoa' : 'pessoas'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto space-y-2">
+            {followingList.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Não está seguindo ninguém ainda</p>
+              </div>
+            ) : (
+              followingList.map((following) => (
+                <button
+                  key={following.id}
+                  onClick={() => {
+                    navigate(`/perfil/${following.id}`);
+                    setShowFollowingDialog(false);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left"
+                >
+                  <ProfileAvatar
+                    userId={following.id}
+                    userName={following.name}
+                    avatarUrl={following.avatar_url}
+                    size="md"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{following.name}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Conquistas */}
+      <Dialog open={showBadgesDialog} onOpenChange={setShowBadgesDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Suas Conquistas</DialogTitle>
+            <DialogDescription>
+              {unlockedBadges.length} de {badges.length} desbloqueadas ({Math.round((unlockedBadges.length / badges.length) * 100)}%)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            {badges.map((badge) => {
+              const isUnlocked = unlockedBadges.some((b) => b.id === badge.id);
+              return (
+                <div
+                  key={badge.id}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    isUnlocked
+                      ? "border-primary bg-primary/5 shadow-glow"
+                      : "border-border/50 bg-background/50 opacity-50"
+                  }`}
+                >
+                  <div className="text-4xl mb-2 text-center">{badge.emoji}</div>
+                  <p className="text-xs font-semibold text-center mb-1">{badge.name}</p>
+                  {isUnlocked && (
+                    <div className="text-center">
+                      <span className="text-xs text-primary font-semibold">Desbloqueada</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Avatar Upload Dialog */}
       <UploadAvatarDialog
@@ -409,4 +574,3 @@ const Perfil = () => {
 };
 
 export default Perfil;
-

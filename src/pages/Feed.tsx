@@ -16,17 +16,23 @@ import {
   Trophy,
   Calendar,
   Users as UsersIcon,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { socialService, type SharedTreino, type TreinoComment } from "@/services/socialService";
 import { treinoService } from "@/services/treinoService";
 import { groupService, type QuickWorkout } from "@/services/groupService";
+import { followService } from "@/services/followService";
+import { groupPostsService, type GroupPost } from "@/services/groupPostsService";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import QuickWorkoutDialog from "@/components/QuickWorkoutDialog";
 import GroupsManager from "@/components/GroupsManager";
 import GroupRankingDialog from "@/components/GroupRankingDialog";
 import GlobalRankingDialog from "@/components/GlobalRankingDialog";
+import MyGroupsDialog from "@/components/MyGroupsDialog";
+import GroupPostCard from "@/components/GroupPostCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import LazyImage from "@/components/LazyImage";
@@ -58,11 +64,14 @@ const Feed = () => {
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [quickWorkoutDialogOpen, setQuickWorkoutDialogOpen] = useState(false);
   const [groupsManagerOpen, setGroupsManagerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "workouts" | "shared">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "workouts" | "shared" | "following">("all");
+  const [followingPosts, setFollowingPosts] = useState<GroupPost[]>([]);
   const [rankingDialogOpen, setRankingDialogOpen] = useState(false);
   const [selectedGroupForRanking, setSelectedGroupForRanking] = useState<{ id: string; name: string } | null>(null);
   const [userGroups, setUserGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [globalRankingOpen, setGlobalRankingOpen] = useState(false);
+  const [myGroupsDialogOpen, setMyGroupsDialogOpen] = useState(false);
+  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadFeed();
@@ -80,13 +89,17 @@ const Feed = () => {
   };
 
   const loadFeed = async () => {
+    if (!user) return;
+    
     try {
-      const [feedData, workoutsData] = await Promise.all([
+      const [feedData, workoutsData, followingData] = await Promise.all([
         socialService.getFeed(50),
         groupService.getFeedWorkouts(undefined, undefined, 50),
+        followService.getFollowingFeed(user.id, 50),
       ]);
       setFeed(feedData);
       setQuickWorkouts(workoutsData);
+      setFollowingPosts(followingData);
     } catch (error) {
       console.error("Erro ao carregar feed:", error);
     } finally {
@@ -188,29 +201,15 @@ const Feed = () => {
           <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
             {userGroups.length > 0 && (
               <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 md:flex-initial"
-                    >
-                      <UsersIcon className="h-4 w-4 mr-2" />
-                      Meus Grupos
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {userGroups.map((group) => (
-                      <DropdownMenuItem
-                        key={group.id}
-                        onClick={() => navigate(`/grupo/${group.id}`)}
-                      >
-                        <UsersIcon className="h-4 w-4 mr-2" />
-                        {group.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMyGroupsDialogOpen(true)}
+                  className="flex-1 md:flex-initial"
+                >
+                  <UsersIcon className="h-4 w-4 mr-2" />
+                  Meus Grupos
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -270,11 +269,42 @@ const Feed = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="all">Tudo</TabsTrigger>
+            <TabsTrigger value="following">Seguindo</TabsTrigger>
             <TabsTrigger value="workouts">Treinos Rápidos</TabsTrigger>
             <TabsTrigger value="shared">Compartilhados</TabsTrigger>
           </TabsList>
+
+          {/* Tab: Seguindo */}
+          <TabsContent value="following" className="space-y-4 mt-4">
+            {followingPosts.length === 0 ? (
+              <Card className="p-12 gradient-card border-border/50 text-center">
+                <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Nenhum post de quem você segue</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Comece a seguir pessoas para ver seus posts aqui!
+                </p>
+                <Button onClick={() => navigate("/feed")} variant="outline">
+                  Explorar Feed
+                </Button>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {followingPosts.map((post) => (
+                  <GroupPostCard
+                    key={post.id}
+                    post={post}
+                    currentUserId={user?.id || ""}
+                    currentUserName={user?.name || ""}
+                    onDelete={() => {
+                      setFollowingPosts(followingPosts.filter((p) => p.id !== post.id));
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
           {/* Tab: Tudo */}
           <TabsContent value="all" className="space-y-4 mt-4">
@@ -451,26 +481,55 @@ const Feed = () => {
                     </div>
                     
                     {/* Lista de exercícios (expandível) */}
-                    {treino?.exercises && treino.exercises.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {treino.exercises.slice(0, 3).map((exercise, index) => (
-                          <div
-                            key={index}
-                            className="text-xs p-2 rounded bg-background border border-border"
-                          >
-                            <span className="font-medium">{exercise.name}</span>
-                            <span className="text-muted-foreground ml-2">
-                              {exercise.sets}x{exercise.reps} @ {exercise.weight}kg
-                            </span>
-                          </div>
-                        ))}
-                        {treino.exercises.length > 3 && (
-                          <p className="text-xs text-muted-foreground text-center">
-                            +{treino.exercises.length - 3} exercícios
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    {treino?.exercises && treino.exercises.length > 0 && (() => {
+                      const isExpanded = expandedExercises.has(sharedTreino.id);
+                      const exercisesToShow = isExpanded ? treino.exercises : treino.exercises.slice(0, 3);
+                      const hasMore = treino.exercises.length > 3;
+                      
+                      return (
+                        <div className="mt-3 space-y-2">
+                          {exercisesToShow.map((exercise, index) => (
+                            <div
+                              key={index}
+                              className="text-xs p-2 rounded bg-background border border-border"
+                            >
+                              <span className="font-medium">{exercise.name}</span>
+                              <span className="text-muted-foreground ml-2">
+                                {exercise.sets}x{exercise.reps} @ {exercise.weight}kg
+                              </span>
+                            </div>
+                          ))}
+                          {hasMore && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+                              onClick={() => {
+                                const newExpanded = new Set(expandedExercises);
+                                if (isExpanded) {
+                                  newExpanded.delete(sharedTreino.id);
+                                } else {
+                                  newExpanded.add(sharedTreino.id);
+                                }
+                                setExpandedExercises(newExpanded);
+                              }}
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="h-3 w-3" />
+                                  Ver menos
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="h-3 w-3" />
+                                  +{treino.exercises.length - 3} exercícios
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {sharedTreino.tags && sharedTreino.tags.length > 0 && (
                       <div className="flex gap-2 flex-wrap mt-2">
                         {sharedTreino.tags.map((tag, index) => (
@@ -719,26 +778,55 @@ const Feed = () => {
                         </div>
                         
                         {/* Lista de exercícios (expandível) */}
-                        {treino?.exercises && treino.exercises.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            {treino.exercises.slice(0, 3).map((exercise, index) => (
-                              <div
-                                key={index}
-                                className="text-xs p-2 rounded bg-background border border-border"
-                              >
-                                <span className="font-medium">{exercise.name}</span>
-                                <span className="text-muted-foreground ml-2">
-                                  {exercise.sets}x{exercise.reps} @ {exercise.weight}kg
-                                </span>
-                              </div>
-                            ))}
-                            {treino.exercises.length > 3 && (
-                              <p className="text-xs text-muted-foreground text-center">
-                                +{treino.exercises.length - 3} exercícios
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        {treino?.exercises && treino.exercises.length > 0 && (() => {
+                          const isExpanded = expandedExercises.has(sharedTreino.id);
+                          const exercisesToShow = isExpanded ? treino.exercises : treino.exercises.slice(0, 3);
+                          const hasMore = treino.exercises.length > 3;
+                          
+                          return (
+                            <div className="mt-3 space-y-2">
+                              {exercisesToShow.map((exercise, index) => (
+                                <div
+                                  key={index}
+                                  className="text-xs p-2 rounded bg-background border border-border"
+                                >
+                                  <span className="font-medium">{exercise.name}</span>
+                                  <span className="text-muted-foreground ml-2">
+                                    {exercise.sets}x{exercise.reps} @ {exercise.weight}kg
+                                  </span>
+                                </div>
+                              ))}
+                              {hasMore && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+                                  onClick={() => {
+                                    const newExpanded = new Set(expandedExercises);
+                                    if (isExpanded) {
+                                      newExpanded.delete(sharedTreino.id);
+                                    } else {
+                                      newExpanded.add(sharedTreino.id);
+                                    }
+                                    setExpandedExercises(newExpanded);
+                                  }}
+                                >
+                                  {isExpanded ? (
+                                    <>
+                                      <ChevronUp className="h-3 w-3" />
+                                      Ver menos
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="h-3 w-3" />
+                                      +{treino.exercises.length - 3} exercícios
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {sharedTreino.tags && sharedTreino.tags.length > 0 && (
                           <div className="flex gap-2 flex-wrap mt-2">
                             {sharedTreino.tags.map((tag, index) => (
@@ -898,6 +986,13 @@ const Feed = () => {
         <GlobalRankingDialog
           open={globalRankingOpen}
           onOpenChange={setGlobalRankingOpen}
+        />
+
+        {/* Meus Grupos Dialog */}
+        <MyGroupsDialog
+          open={myGroupsDialogOpen}
+          onOpenChange={setMyGroupsDialogOpen}
+          onOpenGroupsManager={() => setGroupsManagerOpen(true)}
         />
       </div>
     </div>

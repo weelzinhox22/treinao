@@ -33,6 +33,8 @@ import ExerciseAutocomplete from "@/components/ExerciseAutocomplete";
 import BadgeNotification from "@/components/BadgeNotification";
 import type { Badge } from "@/services/gamificationService";
 import { metasService } from "@/services/metasService";
+import RestTimer from "@/components/RestTimer";
+import { Textarea } from "@/components/ui/textarea";
 
 const NovoTreino = () => {
   const { id } = useParams();
@@ -46,6 +48,7 @@ const NovoTreino = () => {
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [newBadge, setNewBadge] = useState<Badge | null>(null);
+  const [notes, setNotes] = useState<string>("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -101,6 +104,7 @@ const NovoTreino = () => {
       if (treino) {
         setTreinoName(treino.name);
         setExercises(treino.exercises);
+        setNotes(treino.notes || "");
       } else {
         toast({
           title: "Treino não encontrado",
@@ -200,6 +204,7 @@ const NovoTreino = () => {
         treinoService.updateTreino(id, user.id, {
           name: treinoName,
           exercises: exercises,
+          notes: notes.trim() || undefined,
         });
         toast({
           title: "Treino atualizado!",
@@ -211,6 +216,7 @@ const NovoTreino = () => {
           name: treinoName,
           date: new Date().toISOString().split('T')[0],
           exercises: exercises,
+          notes: notes.trim() || undefined,
         });
 
         // Verificar e desbloquear badges
@@ -286,7 +292,7 @@ const NovoTreino = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-4 pb-20 md:pb-8 md:p-8">
+    <div className="min-h-[calc(100vh-4rem)] p-4 pb-32 md:pb-8 md:p-8">
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3 mb-2">
@@ -433,12 +439,13 @@ const NovoTreino = () => {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
                     Volume: <span className="font-semibold text-primary">
                       {formatVolume(exercise.sets * exercise.reps * exercise.weight)}
                     </span>
                   </p>
+                  <RestTimer exerciseName={exercise.name} />
                 </div>
               </div>
             </Card>
@@ -455,25 +462,49 @@ const NovoTreino = () => {
               </Button>
             </Card>
           )}
+
+          {/* Notas e Observações */}
+          <Card className="p-4 gradient-card border-border/50">
+            <Label htmlFor="notes" className="text-base font-semibold mb-2 block">
+              Notas e Observações
+            </Label>
+            <Textarea
+              id="notes"
+              placeholder="Como foi seu treino? Anote dificuldades, progressos, dicas, ou qualquer observação importante..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="min-h-[100px] bg-background border-border"
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              💡 Dica: Use as notas para registrar como foi o treino, dificuldades encontradas, ou progressos alcançados
+            </p>
+          </Card>
         </div>
 
         {/* Summary & Save */}
         {exercises.length > 0 && (
-          <Card className="p-4 gradient-card border-border/50 shadow-card sticky bottom-20 md:bottom-4">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Volume Total</p>
-                <p className="text-xl font-bold text-primary">
-                  {formatVolume(calculateTotalVolume())}
-                </p>
+          <Card 
+            className="p-3 md:p-4 gradient-card border-border/50 shadow-card fixed bottom-16 md:bottom-4 left-0 right-0 z-[60] border-t-2 border-primary/20 bg-background/95 backdrop-blur-sm mx-0 md:mx-8 md:rounded-t-xl md:max-w-4xl md:left-1/2 md:-translate-x-1/2"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          >
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 md:block">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Volume Total</p>
+                  <p className="text-lg md:text-xl font-bold text-primary">
+                    {formatVolume(calculateTotalVolume())}
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2 w-full md:w-auto">
                 {!isEditing && (
                   <Dialog open={saveTemplateDialogOpen} onOpenChange={setSaveTemplateDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="lg" className="flex-1 md:flex-none">
+                      <Button variant="outline" size="lg" className="flex-1 md:flex-initial min-w-[120px]">
                         <Sparkles className="h-4 w-4 mr-2" />
-                        Salvar como Template
+                        <span className="hidden sm:inline">Salvar como Template</span>
+                        <span className="sm:inline md:hidden">Template</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -525,11 +556,12 @@ const NovoTreino = () => {
                 )}
                 <Button
                   onClick={handleSave}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow flex-1 md:flex-none"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow flex-1 md:flex-initial min-w-[120px]"
                   size="lg"
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  Salvar Treino
+                  <span className="hidden sm:inline">Salvar Treino</span>
+                  <span className="sm:inline md:hidden">Salvar</span>
                 </Button>
               </div>
             </div>

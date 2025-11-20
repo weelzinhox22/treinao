@@ -1,3 +1,4 @@
+// BUILD: v2.0 - Novo design moderno de grupos com gradientes e cards
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
@@ -36,6 +37,7 @@ interface GroupsManagerProps {
 }
 
 const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
+  console.log("🎨 GroupsManager v2.0 renderizado!", { open });
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -119,16 +121,34 @@ const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
     navigate(`/grupo/${groupId}`);
   };
 
+  // TESTE: Se você ver "🎨 NOVO DESIGN v2.0" no console, o componente está sendo renderizado
+  console.log("🎨 NOVO DESIGN v2.0 - GroupsManager renderizado!", { 
+    open, 
+    groupsCount: groups.length,
+    hasTabs: true,
+    hasGradients: true 
+  });
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0" aria-describedby="groups-description">
-          <DialogHeader className="p-6 pb-4 bg-gradient-to-r from-primary/10 to-primary/5">
-            <DialogTitle className="flex items-center gap-3 text-2xl">
-              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+        <DialogContent 
+          className="max-w-5xl max-h-[90vh] overflow-hidden p-0" 
+          aria-describedby="groups-description"
+          style={{ 
+            background: 'linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%)',
+            border: '2px solid hsl(var(--primary) / 0.2)'
+          }}
+        >
+          <DialogHeader className="p-6 pb-4 bg-gradient-to-r from-primary/10 to-primary/5 border-b-2 border-primary/20">
+            <DialogTitle className="flex items-center gap-3 text-2xl font-bold">
+              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center ring-2 ring-primary/30">
                 <Users className="h-5 w-5 text-primary" />
               </div>
-              Meus Grupos
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+                Meus Grupos
+              </span>
+              <Badge variant="outline" className="ml-auto text-xs">v2.0</Badge>
             </DialogTitle>
             <DialogDescription id="groups-description" className="text-base">
               Gerencie seus grupos e entre em novos desafios
@@ -150,9 +170,10 @@ const GroupsManager = ({ open, onOpenChange }: GroupsManagerProps) => {
 
               {/* Tab: Meus Grupos */}
               <TabsContent value="my-groups" className="space-y-6">
-                {/* Botão Criar Grupo */}
-                <Card className="p-6 gradient-card border-dashed border-2 border-primary/30 hover:border-primary/50 transition-colors cursor-pointer group"
+                {/* Botão Criar Grupo - NOVO DESIGN v2.0 */}
+                <Card className="p-6 gradient-card border-dashed border-2 border-primary/30 hover:border-primary/50 transition-all cursor-pointer group shadow-lg hover:shadow-xl"
                   onClick={() => setCreateGroupOpen(true)}
+                  style={{ background: 'linear-gradient(135deg, rgba(var(--primary), 0.05) 0%, rgba(var(--primary), 0.02) 100%)' }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">

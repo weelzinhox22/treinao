@@ -22,6 +22,8 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CommentSection from "./CommentSection";
 import ReactionButton from "./ReactionButton";
+import { Link } from "react-router-dom";
+import ProfileAvatar from "./ProfileAvatar";
 
 interface GroupPostCardProps {
   post: GroupPost;
@@ -132,13 +134,17 @@ const GroupPostCard = ({ post, currentUserId, currentUserName, onDelete }: Group
     <Card className="overflow-hidden gradient-card border-border/50 shadow-card hover:shadow-glow transition-smooth">
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src={post.user_avatar_url} />
-            <AvatarFallback>{post.user_name.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-semibold">{post.user_name}</p>
+        <Link
+          to={`/perfil/${post.user_id}`}
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 min-w-0"
+        >
+          <ProfileAvatar
+            userId={post.user_id}
+            userName={post.user_name}
+            size="md"
+          />
+          <div className="min-w-0">
+            <p className="font-semibold truncate">{post.user_name}</p>
             <p className="text-sm text-muted-foreground">
               {formatDistanceToNow(new Date(post.created_at), {
                 addSuffix: true,
@@ -146,7 +152,7 @@ const GroupPostCard = ({ post, currentUserId, currentUserName, onDelete }: Group
               })}
             </p>
           </div>
-        </div>
+        </Link>
 
         {post.user_id === currentUserId && (
           <DropdownMenu>

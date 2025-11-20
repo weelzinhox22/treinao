@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/hooks/useSync";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import NotificationBell from "@/components/NotificationBell";
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -152,6 +153,9 @@ const Navbar = () => {
                     </Button>
                   </Link>
                 </div>
+
+                {/* Notifications */}
+                <NotificationBell />
 
                 {/* Sync Button */}
                 <TooltipProvider>

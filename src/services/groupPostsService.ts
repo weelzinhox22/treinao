@@ -102,6 +102,20 @@ export const groupPostsService = {
     if (error) throw error;
   },
 
+  // Buscar posts de um usuário específico
+  async getUserPosts(userId: string): Promise<GroupPost[]> {
+    if (!supabase) throw new Error("Supabase não configurado");
+
+    const { data, error } = await supabase
+      .from("group_posts")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
   // Curtir post
   async likePost(postId: string, userId: string, userName: string): Promise<void> {
     if (!supabase) throw new Error("Supabase não configurado");

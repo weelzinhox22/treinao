@@ -11,7 +11,8 @@ import {
   Plus,
   Weight,
   Target,
-  Trophy
+  Trophy,
+  Shield
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { treinoService } from "@/services/treinoService";
@@ -24,6 +25,8 @@ import BadgeNotification from "@/components/BadgeNotification";
 import type { Badge } from "@/services/gamificationService";
 import { StatsCardSkeleton } from "@/components/Skeleton";
 import UploadAvatarDialog from "@/components/UploadAvatarDialog";
+import AdminNotificationPanel from "@/components/AdminNotificationPanel";
+import { Badge } from "@/components/ui/badge";
 import { Camera } from "lucide-react";
 
 const Dashboard = () => {
@@ -176,6 +179,29 @@ const Dashboard = () => {
   return (
     <div className="min-h-[calc(100vh-4rem)] p-4 pb-20 md:pb-8 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Admin Panel */}
+        {(user?.email === 'weelzinhox22@gmail.com' || user?.email?.includes('@admin.')) && (
+          <Card className="p-4 gradient-card border-border/50 border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <Shield className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
+                    Painel Administrativo
+                    <Badge variant="default" className="text-xs">Admin</Badge>
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Envie notificações push para todos os usuários da plataforma
+                  </p>
+                </div>
+              </div>
+              <AdminNotificationPanel />
+            </div>
+          </Card>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
