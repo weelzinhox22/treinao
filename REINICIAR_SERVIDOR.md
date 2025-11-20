@@ -57,3 +57,4 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 ✅ Apenas a anon key está sendo usada (segura para frontend)
 ✅ A service role key NÃO deve ser usada no frontend
 
+

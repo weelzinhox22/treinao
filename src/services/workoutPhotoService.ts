@@ -24,17 +24,6 @@ export const workoutPhotoService = {
         throw new Error("Arquivo deve ser uma imagem");
       }
 
-      // Verificar se o bucket existe
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      if (bucketsError) {
-        console.error("Erro ao listar buckets:", bucketsError);
-      }
-      
-      const workoutPhotosBucket = buckets?.find(b => b.name === "workout-photos");
-      if (!workoutPhotosBucket) {
-        throw new Error("Bucket 'workout-photos' não encontrado. Configure o Storage no Supabase (veja CONFIGURACAO_STORAGE_WORKOUT_PHOTOS.md)");
-      }
-
       // Criar nome único para o arquivo
       const fileExt = file.name.split(".").pop() || "jpg";
       const fileName = `${userId}/workouts/${Date.now()}.${fileExt}`;

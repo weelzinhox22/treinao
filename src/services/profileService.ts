@@ -58,17 +58,6 @@ export const profileService = {
         throw new Error("Arquivo deve ser uma imagem");
       }
 
-      // Verificar se o bucket existe
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      if (bucketsError) {
-        console.error("Erro ao listar buckets:", bucketsError);
-      }
-      
-      const avatarsBucket = buckets?.find(b => b.name === "avatars");
-      if (!avatarsBucket) {
-        throw new Error("Bucket 'avatars' não encontrado. Configure o Storage no Supabase (veja CONFIGURACAO_STORAGE.md)");
-      }
-
       // Deletar avatar antigo se existir
       const currentProfile = await profileService.getProfile(userId);
       if (currentProfile?.avatar_url && currentProfile.avatar_url.includes("supabase.co")) {

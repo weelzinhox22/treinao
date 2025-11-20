@@ -90,13 +90,9 @@ class SupabaseService {
   ): Promise<T | T[] | null> {
     const dataArray = Array.isArray(data) ? data : [data];
     
-    // Sempre salvar localmente primeiro
-    const existing = this.getDataFromLocalStorage<T>(table, userId);
-    const updated = Array.isArray(data) 
-      ? [...existing, ...dataArray]
-      : [...existing, data];
-    
-    localStorage.setItem(`supabase_${table}_${userId}`, JSON.stringify(updated));
+    // CORREÇÃO: Substituir dados ao invés de acumular
+    // Isso evita duplicação e estouro do localStorage
+    localStorage.setItem(`supabase_${table}_${userId}`, JSON.stringify(dataArray));
 
     if (supabase && this.isOnline) {
       try {

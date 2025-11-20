@@ -26,6 +26,8 @@ import {
 import { Camera, Upload, Trash2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { fotoService, type Foto } from "@/services/fotoService";
+import { workoutPhotoService } from "@/services/workoutPhotoService";
+import { supabaseService } from "@/services/supabaseService";
 import { useToast } from "@/hooks/use-toast";
 import LazyImage from "@/components/LazyImage";
 
@@ -91,21 +93,40 @@ const Fotos = () => {
 
     setUploading(true);
     try {
-      // Converter para base64 (em produção, você faria upload para um servidor)
-      const base64 = await fotoService.fileToBase64(selectedFile);
-      fotoService.addFoto(user.id, base64, description || undefined);
+      let photoUrl: string;
       
-      toast({
-        title: "Foto adicionada!",
-        description: "Sua foto foi salva com sucesso.",
-      });
-
+      // Se Supabase está configurado, fazer upload para o Storage
+      if (supabaseService.isConfigured()) {
+        try {
+          photoUrl = await workoutPhotoService.uploadWorkoutPhoto(user.id, selectedFile);
+          toast({
+            title: "Foto enviada!",
+            description: "Sua foto foi salva no Supabase Storage.",
+          });
+        } catch (error: any) {
+          console.error("Erro ao fazer upload para Supabase:", error);
+          // Fallback para base64 se o upload falhar
+          toast({
+            title: "Usando armazenamento local",
+            description: "Foto salva localmente (Supabase indisponível).",
+            variant: "default",
+          });
+          photoUrl = await fotoService.fileToBase64(selectedFile);
+        }
+      } else {
+        // Sem Supabase, usar base64
+        photoUrl = await fotoService.fileToBase64(selectedFile);
+      }
+      
+      fotoService.addFoto(user.id, photoUrl, description || undefined);
+      
       setUploadDialogOpen(false);
       setSelectedFile(null);
       setPreview(null);
       setDescription("");
       loadFotos();
     } catch (error) {
+      console.error("Erro ao fazer upload:", error);
       toast({
         title: "Erro ao fazer upload",
         description: "Não foi possível salvar a foto. Tente novamente.",

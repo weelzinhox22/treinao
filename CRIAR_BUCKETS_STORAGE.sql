@@ -120,3 +120,4 @@ USING (
 -- Execute esta query para verificar:
 -- SELECT * FROM storage.buckets WHERE id IN ('avatars', 'workout-photos');
 
+

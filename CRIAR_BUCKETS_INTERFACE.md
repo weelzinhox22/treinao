@@ -186,3 +186,4 @@ Se aparecer erro, verifique:
 
 Depois de criar os buckets, tudo deve funcionar perfeitamente!
 
+

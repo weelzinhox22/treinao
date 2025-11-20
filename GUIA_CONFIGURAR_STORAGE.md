@@ -105,3 +105,4 @@ Deve retornar os dados do usuário. Se retornar `null`, o usuário não está au
 
 Após seguir estes passos, o upload de avatars e fotos de treino deve funcionar corretamente! 🎉
 
+

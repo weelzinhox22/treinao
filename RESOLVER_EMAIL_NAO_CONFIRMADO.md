@@ -95,3 +95,4 @@ Depois de confirmar o email:
 
 Para desenvolvimento local, é mais prático desabilitar a confirmação de email. Para produção, sempre mantenha habilitada por segurança.
 
+

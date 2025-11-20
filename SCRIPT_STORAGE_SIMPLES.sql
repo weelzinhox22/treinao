@@ -100,3 +100,4 @@ WHERE id IN ('avatars', 'workout-photos');
 -- ✅ SE APARECER AS 2 LINHAS, ESTÁ PRONTO!
 -- ✅ Agora teste o upload na aplicação
 
+
