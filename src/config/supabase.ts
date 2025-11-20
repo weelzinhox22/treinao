@@ -14,6 +14,9 @@ console.log('🔍 Debug Supabase Config:', {
   urlLength: supabaseUrl?.length || 0,
   keyLength: supabaseAnonKey?.length || 0,
   urlPreview: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'undefined',
+  urlValue: supabaseUrl || 'undefined',
+  keyValue: supabaseAnonKey ? `${supabaseAnonKey.substring(0, 50)}...` : 'undefined',
+  allEnvVars: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
 });
 
 // Validação de segurança

@@ -27,10 +27,10 @@ const Login = () => {
         description: "Bem-vindo de volta ao TREINÃO DOS CARAS",
       });
       navigate("/dashboard");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro ao fazer login",
-        description: "Verifique suas credenciais e tente novamente",
+        description: error.message || "Verifique suas credenciais e tente novamente",
         variant: "destructive",
       });
     } finally {

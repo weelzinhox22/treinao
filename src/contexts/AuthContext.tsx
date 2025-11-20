@@ -112,6 +112,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) {
       console.error("Erro ao fazer login:", error);
+      
+      // Mensagens de erro mais amigáveis
+      if (error.message.includes("Email not confirmed")) {
+        throw new Error("Email não confirmado. Verifique sua caixa de entrada e clique no link de confirmação enviado pelo Supabase.");
+      }
+      
+      if (error.message.includes("Invalid login credentials")) {
+        throw new Error("Email ou senha incorretos. Verifique suas credenciais e tente novamente.");
+      }
+      
       throw error;
     }
 

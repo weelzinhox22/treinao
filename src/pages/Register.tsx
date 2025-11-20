@@ -25,13 +25,15 @@ const Register = () => {
       await register(name, email, password);
       toast({
         title: "Conta criada com sucesso!",
-        description: "Bem-vindo ao TREINÃO DOS CARAS",
+        description: "Verifique seu email para confirmar o cadastro antes de fazer login.",
+        duration: 8000,
       });
-      navigate("/dashboard");
-    } catch (error) {
+      // Redirecionar para login ao invés de dashboard
+      setTimeout(() => navigate("/login"), 2000);
+    } catch (error: any) {
       toast({
         title: "Erro ao criar conta",
-        description: "Tente novamente mais tarde",
+        description: error.message || "Tente novamente mais tarde",
         variant: "destructive",
       });
     } finally {
