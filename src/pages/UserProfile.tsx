@@ -120,6 +120,114 @@ const UserProfile = () => {
     }
   };
 
+  const loadFollowers = async () => {
+    if (!userId || !supabase) return;
+    
+    try {
+      const { data: follows, error } = await supabase
+        .from('user_follows')
+        .select('follower_id, created_at')
+        .eq('following_id', userId.toString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const followerIds = follows?.map(f => f.follower_id) || [];
+      if (followerIds.length === 0) {
+        setFollowers([]);
+        return;
+      }
+
+      const followersPromises = followerIds.map(async (id) => {
+        try {
+          const { data: stats } = await supabase
+            .from('user_profile_stats')
+            .select('user_id, user_name, avatar_url')
+            .eq('user_id', id.toString())
+            .maybeSingle();
+
+          return {
+            id: id,
+            name: stats?.user_name || 'Usuário',
+            avatar_url: stats?.avatar_url,
+          };
+        } catch {
+          return {
+            id: id,
+            name: 'Usuário',
+            avatar_url: undefined,
+          };
+        }
+      });
+
+      const followersData = await Promise.all(followersPromises);
+      setFollowers(followersData);
+    } catch (error) {
+      console.error("Erro ao carregar seguidores:", error);
+      setFollowers([]);
+    }
+  };
+
+  const loadFollowing = async () => {
+    if (!userId || !supabase) return;
+    
+    try {
+      const { data: follows, error } = await supabase
+        .from('user_follows')
+        .select('following_id, created_at')
+        .eq('follower_id', userId.toString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const followingIds = follows?.map(f => f.following_id) || [];
+      if (followingIds.length === 0) {
+        setFollowingList([]);
+        return;
+      }
+
+      const followingPromises = followingIds.map(async (id) => {
+        try {
+          const { data: stats } = await supabase
+            .from('user_profile_stats')
+            .select('user_id, user_name, avatar_url')
+            .eq('user_id', id.toString())
+            .maybeSingle();
+
+          return {
+            id: id,
+            name: stats?.user_name || 'Usuário',
+            avatar_url: stats?.avatar_url,
+          };
+        } catch {
+          return {
+            id: id,
+            name: 'Usuário',
+            avatar_url: undefined,
+          };
+        }
+      });
+
+      const followingData = await Promise.all(followingPromises);
+      setFollowingList(followingData);
+    } catch (error) {
+      console.error("Erro ao carregar seguindo:", error);
+      setFollowingList([]);
+    }
+  };
+
+  useEffect(() => {
+    if (showFollowersDialog && userId) {
+      loadFollowers();
+    }
+  }, [showFollowersDialog, userId]);
+
+  useEffect(() => {
+    if (showFollowingDialog && userId) {
+      loadFollowing();
+    }
+  }, [showFollowingDialog, userId]);
+
   if (loading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] p-4 pb-20 md:pb-8 md:p-8">
